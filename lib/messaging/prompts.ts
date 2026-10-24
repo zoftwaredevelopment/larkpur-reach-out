@@ -1,0 +1,36 @@
+import type { Company, Contact, MessageStage } from "@/lib/types";
+
+export function buildMessagePrompt(
+  company: Company,
+  contact: Contact | null,
+  stage: MessageStage,
+): string {
+  const contactName = contact?.name || "there";
+  const contactRole = contact?.role || "decision-maker";
+  const industry = company.industry || "business";
+
+  const stageContext = {
+    initial: "This is the first outreach. Introduce Larkspur Resourcing and ask about their hiring needs.",
+    follow_up_1: "Follow-up message sent 1 day after initial outreach. Remind them of the value proposition.",
+    follow_up_2: "Follow-up message sent 3 days after first follow-up. Add a specific pain point or case study.",
+    follow_up_3: "Final follow-up after 1 week. Keep it brief and professional.",
+    breakup: "Breakup message after no response. Politely close the conversation and leave the door open.",
+    re_engagement: "Re-engagement message after 2+ weeks of silence. Reference a new service or insight.",
+  };
+
+  return `Generate a WhatsApp message for ${contactName} (${contactRole}) at ${company.name}, a ${industry} company in ${company.city || "Lagos"}.
+
+Stage: ${stage}
+Context: ${stageContext[stage]}
+
+Requirements:
+- Keep it under 280 characters
+- Friendly, professional tone
+- Reference their industry (${industry})
+- Mention Larkspur Resourcing
+- Include a clear call-to-action
+- Avoid generic phrases like "I hope this message finds you well"
+- Use Nigerian English conventions
+
+Return JSON: { "content": "message text", "variant": "A" }`;
+}
