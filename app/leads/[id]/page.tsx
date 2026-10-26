@@ -160,6 +160,27 @@ export default function LeadDetailPage({
     }
   };
 
+  const disapprove = async () => {
+    if (!confirm("Disapprove this lead? This will permanently delete the company and lead from your pipeline.")) return;
+
+    try {
+      const res = await fetch("/api/disapprove-lead", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lead_id: lead.id }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to disapprove");
+      }
+
+      router.push("/leads");
+    } catch (err: any) {
+      setMessageError(err.message || "Something went wrong");
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
   };
@@ -346,6 +367,12 @@ export default function LeadDetailPage({
             className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm font-medium"
           >
             Pass to Business Owner
+          </button>
+          <button
+            onClick={disapprove}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium"
+          >
+            Disapprove
           </button>
           <span className="text-xs text-gray-500 italic">
             {lead.stage === "meeting" ? "✓ Meeting-ready" : ""}
