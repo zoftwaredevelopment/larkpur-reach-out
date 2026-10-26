@@ -21,6 +21,7 @@ export default function LeadDetailPage({
   const [replyInput, setReplyInput] = useState("");
   const [replySaving, setReplySaving] = useState(false);
   const [interactions, setInteractions] = useState<any[]>([]);
+  const [contactMethod, setContactMethod] = useState<"whatsapp" | "email" | "phone">("whatsapp");
 
   useEffect(() => {
     let isMounted = true;
@@ -168,7 +169,7 @@ export default function LeadDetailPage({
       const res = await fetch("/api/mark-message-sent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lead_id: lead.id, follow_up_days: 1 }),
+        body: JSON.stringify({ lead_id: lead.id, follow_up_days: 1, contact_method: contactMethod }),
       });
 
       if (!res.ok) {
@@ -238,6 +239,25 @@ export default function LeadDetailPage({
             {lead.last_contacted_at ? "Initial message sent" : "Mark initial message as sent"}
           </span>
           {generating && <span className="text-xs text-gray-500">Saving...</span>}
+        </div>
+
+        <div className="mb-4">
+          <label className="text-xs font-semibold text-gray-500 uppercase mb-2 block">Contact Method</label>
+          <div className="flex gap-3">
+            {["whatsapp", "email", "phone"].map((method) => (
+              <label key={method} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="contactMethod"
+                  value={method}
+                  checked={contactMethod === method}
+                  onChange={() => setContactMethod(method as "whatsapp" | "email" | "phone")}
+                  className="w-4 h-4 text-blue-600 border-gray-300"
+                />
+                {method === "whatsapp" ? "WhatsApp" : method === "email" ? "Email" : "Phone"}
+              </label>
+            ))}
+          </div>
         </div>
 
         {lead.last_contacted_at && (

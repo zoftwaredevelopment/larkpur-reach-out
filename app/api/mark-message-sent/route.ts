@@ -10,9 +10,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { lead_id, follow_up_days = 1 } = (await request.json()) as {
+  const { lead_id, follow_up_days = 1, contact_method = "whatsapp" } = (await request.json()) as {
     lead_id: string;
     follow_up_days?: number;
+    contact_method?: "whatsapp" | "email" | "phone";
   };
 
   if (!lead_id) {
@@ -36,11 +37,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: leadError.message }, { status: 500 });
   }
 
-  // Log the interaction
+  // Log the interaction with the contact method used
+  const interactionTypeMap: Record<string, string> = {
+    whatsapp: "whatsapp_sent",
+    email: "email",
+    phone: "call",
+  };
+  const messageContentMap: Record<string, string> = {
+    whatsapp: "WhatsApp message sent",
+    email: "Email sent",
+    phone: "Phone call made",
+  };
+
   await admin.from("larkspur_interactions").insert({
     lead_id,
-    type: "whatsapp_sent",
-    message_content: "Initial WhatsApp message sent",
+    type: interactionTypeMap[contact_method] || "whatsapp_sent",
+    message_content: messageContentMap[contact_method] || "Initial message sent",
     sent_at: now.toISOString(),
   });
 
