@@ -40,15 +40,47 @@ export function ApproveButton({ companyId }: ApproveButtonProps) {
     }
   };
 
+  const disapprove = async (companyId: string) => {
+    if (!confirm("Disapprove this company? This will permanently delete it from your pipeline.")) return;
+
+    try {
+      const res = await fetch("/api/disapprove-company", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company_id: companyId }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Failed to disapprove company");
+        return;
+      }
+
+      // Reload the page to reflect the deletion
+      router.refresh();
+    } catch (err) {
+      alert("Something went wrong");
+    }
+  };
+
   return (
-    <form onSubmit={handleApprove}>
+    <div className="flex gap-3">
+      <form onSubmit={handleApprove}>
+        <button
+          type="submit"
+          disabled={approving}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium disabled:opacity-60"
+        >
+          {approving ? "Approving…" : "Approve as Lead"}
+        </button>
+      </form>
       <button
-        type="submit"
-        disabled={approving}
-        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium disabled:opacity-60"
+        onClick={() => disapprove(companyId)}
+        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium"
       >
-        {approving ? "Approving…" : "Approve as Lead"}
+        Disapprove
       </button>
-    </form>
+    </div>
   );
 }
