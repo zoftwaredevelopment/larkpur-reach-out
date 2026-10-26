@@ -35,6 +35,7 @@ ${historySection}Requirements:
 - Introduce yourself as "Mishael" from Larkspur Resourcing within the message body — do NOT add a "-Mishael" signature at the end
 - Include a clear call-to-action
 - Avoid generic phrases like "I hope this message finds you well"
+- Do NOT use numbered templates or phone number templates like "call 08xxx" — keep it natural and conversational
 - Use Nigerian English conventions
 
 Return JSON: { "content": "message text", "variant": "A" }`;
