@@ -32,6 +32,7 @@ ${historySection}Requirements:
 - Friendly, professional tone
 - Reference their industry (${industry})
 - Mention Larkspur Resourcing
+- Sign off as "Mishael" from Larkspur Resourcing — do NOT use placeholder contact names as the sender
 - Include a clear call-to-action
 - Avoid generic phrases like "I hope this message finds you well"
 - Use Nigerian English conventions
