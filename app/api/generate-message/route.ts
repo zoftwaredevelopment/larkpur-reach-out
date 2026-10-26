@@ -14,9 +14,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { lead_id, stage } = (await request.json()) as {
+  const { lead_id, stage, reply_content } = (await request.json()) as {
     lead_id: string;
     stage: MessageStage;
+    reply_content?: string;
   };
 
   if (!lead_id || !stage) {
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
   const contact = lead.larkspur_contacts as any;
 
   // Generate message
-  const prompt = buildMessagePrompt(company, contact, stage);
+  const prompt = buildMessagePrompt(company, contact, stage, reply_content);
   const result = await generateMessage(prompt);
 
   // Save message to database

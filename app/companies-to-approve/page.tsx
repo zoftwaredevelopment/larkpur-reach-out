@@ -2,7 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
-export default async function TriagePage() {
+import { ApproveButton } from "./ApproveButton";
+
+export const dynamic = "force-dynamic";
+
+export default async function CompaniesToApprovePage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -12,59 +16,52 @@ export default async function TriagePage() {
     redirect("/login");
   }
 
-  // Fetch companies without leads (not yet triaged)
-  const { data: companies } = await supabase
-    .from("larkspur_companies")
-    .select("*")
-    .is("id", null) // This won't work, need to check if lead exists
-    .order("created_at", { ascending: false })
-    .limit(50);
-
-  // Better approach: fetch companies that don't have a lead
+  // Fetch companies that don't have a lead yet
   const { data: allCompanies } = await supabase
     .from("larkspur_companies")
     .select("*, larkspur_leads(id)")
-    .order("created_at", { ascending: false })
-    .limit(50);
+    .order("created_at", { ascending: false });
 
-  const untriagedCompanies = allCompanies?.filter((c: any) => !c.larkspur_leads) || [];
+  const unapprovedCompanies = allCompanies?.filter(
+    (c: any) => !c.larkspur_leads || c.larkspur_leads.length === 0
+  ) || [];
 
   return (
     <div className="max-w-7xl mx-auto p-8">
       <div className="mb-8 flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Triage</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Companies to Approve</h1>
           <p className="text-gray-600 mt-1">
-            Review companies from Google Places and approve them as leads
+            Approve companies as leads to start outreach
           </p>
         </div>
         <Link
-          href="/"
+          href="/leads"
           className="text-blue-600 hover:text-blue-800 font-medium"
         >
-          ← Back to Dashboard
+          ← View All Leads
         </Link>
       </div>
 
-      {untriagedCompanies.length === 0 ? (
+      {unapprovedCompanies.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
-          <p className="text-gray-600 mb-4">No companies to triage</p>
+          <p className="text-gray-600 mb-4">All companies are already approved</p>
           <Link
-            href="/settings"
+            href="/leads"
             className="text-blue-600 hover:text-blue-800 font-medium"
           >
-            Configure saved searches →
+            View All Leads →
           </Link>
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow">
           <div className="p-6 border-b">
             <h2 className="text-lg font-semibold">
-              {untriagedCompanies.length} companies to review
+              {unapprovedCompanies.length} company{"s"} to approve
             </h2>
           </div>
           <div className="divide-y">
-            {untriagedCompanies.map((company: any) => (
+            {unapprovedCompanies.map((company: any) => (
               <div key={company.id} className="p-6 hover:bg-gray-50">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
@@ -90,26 +87,7 @@ export default async function TriagePage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <form action={`/api/approve-lead`} method="POST">
-                      <input type="hidden" name="company_id" value={company.id} />
-                      <button
-                        type="submit"
-                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium"
-                      >
-                        Approve
-                      </button>
-                    </form>
-                    <form action={`/api/discard-lead`} method="POST">
-                      <input type="hidden" name="company_id" value={company.id} />
-                      <button
-                        type="submit"
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-sm font-medium"
-                      >
-                        Discard
-                      </button>
-                    </form>
-                  </div>
+                  <ApproveButton companyId={company.id} />
                 </div>
               </div>
             ))}

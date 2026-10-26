@@ -4,6 +4,7 @@ export function buildMessagePrompt(
   company: Company,
   contact: Contact | null,
   stage: MessageStage,
+  conversationHistory?: string,
 ): string {
   const contactName = contact?.name || "there";
   const contactRole = contact?.role || "decision-maker";
@@ -18,12 +19,15 @@ export function buildMessagePrompt(
     re_engagement: "Re-engagement message after 2+ weeks of silence. Reference a new service or insight.",
   };
 
+  const historySection = conversationHistory
+    ? `\nPrevious conversation:\nThe lead replied: "${conversationHistory}"\nUse their actual response to craft a relevant, personalized reply. Do not ignore what they said.\n`
+    : "";
+
   return `Generate a WhatsApp message for ${contactName} (${contactRole}) at ${company.name}, a ${industry} company in ${company.city || "Lagos"}.
 
 Stage: ${stage}
 Context: ${stageContext[stage]}
-
-Requirements:
+${historySection}Requirements:
 - Keep it under 280 characters
 - Friendly, professional tone
 - Reference their industry (${industry})

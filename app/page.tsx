@@ -74,18 +74,18 @@ export default async function Dashboard() {
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Link
-          href="/triage"
-          className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
-        >
-          <h3 className="font-semibold text-gray-900 mb-2">Triage New Companies</h3>
-          <p className="text-sm text-gray-600">Review and approve companies from Google Places</p>
-        </Link>
-        <Link
           href="/leads"
           className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
         >
           <h3 className="font-semibold text-gray-900 mb-2">View All Leads</h3>
           <p className="text-sm text-gray-600">Manage your outreach pipeline</p>
+        </Link>
+        <Link
+          href="/companies-to-approve"
+          className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+        >
+          <h3 className="font-semibold text-gray-900 mb-2">Approve Companies</h3>
+          <p className="text-sm text-gray-600">Approve companies as leads</p>
         </Link>
         <Link
           href="/settings"

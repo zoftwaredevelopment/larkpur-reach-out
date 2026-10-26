@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -10,14 +12,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { company_id } = (await request.json()) as { company_id: string };
+  const formData = await request.formData();
+  const company_id = formData.get("company_id") as string;
 
   if (!company_id) {
     return NextResponse.json({ error: "company_id is required" }, { status: 400 });
   }
 
-  // Use admin client to bypass RLS for creating the lead
   const admin = createAdminClient();
+
+  // Check if a lead already exists for this company
+  const { data: existingLead } = await admin
+    .from("larkspur_leads")
+    .select("id")
+    .eq("company_id", company_id)
+    .single();
+
+  if (existingLead) {
+    // Already approved — return the existing lead id
+    return NextResponse.json({ leadId: existingLead.id });
+  }
 
   // Create the lead
   const { data: lead, error: leadError } = await admin
@@ -34,5 +48,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: leadError.message }, { status: 500 });
   }
 
-  return NextResponse.json(lead);
+  // Return the lead id so the client can redirect to the lead page
+  return NextResponse.json({ leadId: lead.id });
 }

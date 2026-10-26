@@ -3,8 +3,7 @@
   "crons": [
     {
       "path": "/api/ingest",
-      "schedule": "0 8 * * *",
-      "description": "Daily lead ingestion from Google Places"
+      "schedule": "0 8 * * *"
     }
   ]
 }

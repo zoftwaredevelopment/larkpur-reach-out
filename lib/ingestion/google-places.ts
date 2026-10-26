@@ -199,13 +199,29 @@ async function upsertCompany(
     notes: null,
   };
 
-  const { error: insertError } = await supabase
+  const { data: insertedCompany, error: insertError } = await supabase
     .from("larkspur_companies")
-    .insert(row);
+    .insert(row)
+    .select("id")
+    .single();
 
   if (insertError) {
     console.error(`Failed to insert company ${place.name}:`, insertError.message);
     return "failed";
+  }
+
+  // Auto-approve: every ingested company becomes a lead (no triage step)
+  const { error: leadError } = await supabase
+    .from("larkspur_leads")
+    .insert({
+      company_id: insertedCompany.id,
+      stage: "prospect",
+      source: "google_places",
+    });
+
+  if (leadError) {
+    console.error(`Failed to create lead for company ${place.name}:`, leadError.message);
+    // Company was inserted; lead creation failure is non-fatal
   }
 
   return "inserted";
