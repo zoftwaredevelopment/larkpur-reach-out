@@ -33,6 +33,7 @@ ${historySection}Requirements:
 - Reference their industry (${industry})
 - Mention Larkspur Resourcing
 - Introduce yourself as "Mishael" from Larkspur Resourcing within the message body — do NOT add a "-Mishael" signature at the end
+- Greet with "Goodday!" — never use "Hi Sir" or gendered salutations
 - Include a clear call-to-action
 - Avoid generic phrases like "I hope this message finds you well"
 - Do NOT use numbered templates or phone number templates like "call 08xxx" — keep it natural and conversational
