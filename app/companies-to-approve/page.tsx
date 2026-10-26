@@ -6,6 +6,8 @@ import { ApproveButton } from "./ApproveButton";
 
 export const dynamic = "force-dynamic";
 
+const RECRUITMENT_INDUSTRIES = ["Recruitment", "Staffing", "Headhunting"];
+
 export default async function CompaniesToApprovePage() {
   const supabase = await createClient();
   const {
@@ -23,7 +25,10 @@ export default async function CompaniesToApprovePage() {
     .order("created_at", { ascending: false });
 
   const unapprovedCompanies = allCompanies?.filter(
-    (c: any) => !c.larkspur_leads || c.larkspur_leads.length === 0
+    (c: any) =>
+      !c.larkspur_leads ||
+      c.larkspur_leads.length === 0 ||
+      !RECRUITMENT_INDUSTRIES.includes(c.industry || "")
   ) || [];
 
   return (

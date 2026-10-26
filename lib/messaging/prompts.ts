@@ -31,7 +31,7 @@ ${historySection}Requirements:
 - Keep it under 280 characters
 - Friendly, professional tone
 - Reference their industry (${industry})
-- Mention Larkspur Resourcing
+- Mention Larkspur — keep it brief, no need to say the full company name
 - Introduce yourself as "Mishael" from Larkspur Resourcing within the message body — do NOT add a "-Mishael" signature at the end
 - Greet with "Goodday!" — never use "Hi Sir" or gendered salutations
 - Include a clear call-to-action
