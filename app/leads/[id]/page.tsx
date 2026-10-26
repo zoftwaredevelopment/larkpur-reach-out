@@ -117,7 +117,7 @@ export default function LeadDetailPage({
       const res = await fetch("/api/log-reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lead_id: lead.id, reply_content: replyInput.trim(), stage: "replied" }),
+        body: JSON.stringify({ lead_id: lead.id, reply_content: replyInput.trim(), stage: "replied", outreach_method: contactMethod }),
       });
 
       if (!res.ok) {
@@ -127,7 +127,7 @@ export default function LeadDetailPage({
 
       setInteractions((prev: any[]) => [
         ...prev,
-        { type: "whatsapp_reply", reply_content: replyInput.trim(), created_at: new Date().toISOString() },
+        { type: "whatsapp_reply", reply_content: replyInput.trim(), outreach_method: contactMethod, created_at: new Date().toISOString() },
       ]);
       setLead((prev: any) => ({ ...prev, stage: "replied" }));
       setReplyInput("");
@@ -145,7 +145,7 @@ export default function LeadDetailPage({
       const res = await fetch("/api/log-reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lead_id: lead.id, reply_content: replyInput.trim() || "Meeting requested", stage: "meeting" }),
+        body: JSON.stringify({ lead_id: lead.id, reply_content: replyInput.trim() || "Meeting requested", stage: "meeting", outreach_method: contactMethod }),
       });
 
       if (!res.ok) {
