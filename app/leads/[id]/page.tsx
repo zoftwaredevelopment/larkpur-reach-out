@@ -20,6 +20,9 @@ export default function LeadDetailPage({
   const [messageError, setMessageError] = useState<string | null>(null);
   const [replyInput, setReplyInput] = useState("");
   const [replySaving, setReplySaving] = useState(false);
+  const [chatHistoryInput, setChatHistoryInput] = useState("");
+  const [chatHistorySaving, setChatHistorySaving] = useState(false);
+  const [chatHistoryResult, setChatHistoryResult] = useState<{ added: number; total: number; already: number } | null>(null);
   const [interactions, setInteractions] = useState<any[]>([]);
   const [contactMethod, setContactMethod] = useState<"whatsapp" | "email" | "phone">("whatsapp");
 
@@ -135,6 +138,53 @@ export default function LeadDetailPage({
       setMessageError(err.message || "Something went wrong");
     } finally {
       setReplySaving(false);
+    }
+  };
+
+  const saveChatHistory = async () => {
+    if (!chatHistoryInput.trim()) return;
+    setChatHistorySaving(true);
+    setChatHistoryResult(null);
+
+    try {
+      const res = await fetch("/api/log-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lead_id: lead.id,
+          chat_history: chatHistoryInput.trim(),
+          stage: "replied",
+          outreach_method: contactMethod,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to log chat history");
+      }
+
+      const data = await res.json();
+      setChatHistoryResult({
+        added: data.added ?? 0,
+        total: data.total_parsed ?? 0,
+        already: data.already_recorded ?? 0,
+      });
+
+      // Refresh interactions from server
+      const { data: intData } = await supabase
+        .from("larkspur_interactions")
+        .select("*")
+        .eq("lead_id", lead.id)
+        .order("created_at", { ascending: true });
+      if (intData) {
+        setInteractions(intData);
+      }
+      setLead((prev: any) => ({ ...prev, stage: "replied" }));
+      setChatHistoryInput("");
+    } catch (err: any) {
+      setMessageError(err.message || "Something went wrong");
+    } finally {
+      setChatHistorySaving(false);
     }
   };
 
@@ -301,6 +351,46 @@ export default function LeadDetailPage({
             {messageError}
           </div>
         )}
+      </div>
+
+      {/* Log Full Chat History */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-4">Log Full WhatsApp Chat History</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Paste the entire WhatsApp chat (with timestamps). The app will only record messages
+          that haven't been logged yet.
+        </p>
+        <textarea
+          value={chatHistoryInput}
+          onChange={(e) => setChatHistoryInput(e.target.value)}
+          placeholder="Paste full WhatsApp chat here..."
+          rows={8}
+          className="w-full p-3 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none mb-4"
+        />
+        {chatHistoryResult && (
+          <div className={`mb-4 p-3 rounded text-sm ${
+            chatHistoryResult.added > 0
+              ? "bg-green-50 border border-green-100 text-green-800"
+              : "bg-blue-50 border border-blue-100 text-blue-800"
+          }`}
+          >
+            {chatHistoryResult.added > 0
+              ? `Logged ${chatHistoryResult.added} new message(s) out of ${chatHistoryResult.total} parsed (${chatHistoryResult.already} already recorded).`
+              : `No new messages — all ${chatHistoryResult.total} parsed message(s) were already recorded.`
+          }
+          </div>
+        )}
+        <button
+          onClick={saveChatHistory}
+          disabled={chatHistorySaving || !chatHistoryInput.trim()}
+          className={`px-4 py-2 rounded text-sm font-medium ${
+            chatHistorySaving || !chatHistoryInput.trim()
+              ? "bg-gray-400 text-white cursor-not-allowed"
+              : "bg-blue-600 text-white hover:bg-blue-700"
+          }`}
+        >
+          {chatHistorySaving ? "Logging…" : "Log Chat History"}
+        </button>
       </div>
 
       {/* Conversation History */}
