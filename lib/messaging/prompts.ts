@@ -36,6 +36,7 @@ ${historySection}Requirements:
 - Greet with "Goodday!" — never use "Hi Sir" or gendered salutations
 - Include a clear call-to-action
 - Avoid generic phrases like "I hope this message finds you well"
+- Do NOT invent unverified claims like "I heard you're growing your [X] team" — only reference what you actually know
 - Do NOT use numbered templates or phone number templates like "call 08xxx" — keep it natural and conversational
 - Use Nigerian English conventions
 
