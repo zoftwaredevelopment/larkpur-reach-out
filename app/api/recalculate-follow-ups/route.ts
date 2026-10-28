@@ -5,7 +5,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const FOLLOW_UP_DAYS = 7;
 
 export async function POST(request: Request) {
-  // TODO: Re-add auth check before production use
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const admin = createAdminClient();
 
   // Fetch all leads with their last_contacted_at
