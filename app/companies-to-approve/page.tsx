@@ -18,11 +18,13 @@ export default async function CompaniesToApprovePage() {
     redirect("/login");
   }
 
-  // Fetch companies that don't have a lead yet and haven't been disapproved
+  // Fetch companies that don't have a lead yet
+  // NOTE: .is("disapproved_at", null) filter removed because the disapproved_at
+  // column (migration 0002) has not yet been applied to the production database.
+  // Re-add once the migration is run via the Supabase SQL editor.
   const { data: allCompanies } = await supabase
     .from("larkspur_companies")
     .select("*, larkspur_leads(id)")
-    .is("disapproved_at", null)
     .order("created_at", { ascending: false });
 
   const unapprovedCompanies = allCompanies?.filter(
