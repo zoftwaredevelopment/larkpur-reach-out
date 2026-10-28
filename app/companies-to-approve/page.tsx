@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -19,43 +18,9 @@ export default async function CompaniesToApprovePage() {
     redirect("/login");
   }
 
-  const admin = createAdminClient();
-
-  // --- Auto-cleanup triage -------------------------------------------
-  // Permanently remove companies from triage that already have a clear record:
-  //   • approved (has a lead) — the lead is the source of truth
-  //   • disapproved (disapproved_at set) — no longer a candidate
-  // FK on larkspur_leads.company_id is on delete set null (migration 0003),
-  // so deleting the company keeps the lead record intact.
-  try {
-    const { data: leads } = await admin
-      .from("larkspur_leads")
-      .select("company_id")
-      .not("company_id", "is", null);
-
-    const approvedCompanyIds = (leads ?? [])
-      .map((l: any) => l.company_id)
-      .filter(Boolean);
-
-    if (approvedCompanyIds.length > 0) {
-      await admin.from("larkspur_companies").delete().in("id", approvedCompanyIds);
-    }
-
-    const { data: disapprovedCompanies } = await admin
-      .from("larkspur_companies")
-      .select("id")
-      .not("disapproved_at", "is", null);
-
-    const disapprovedIds = (disapprovedCompanies ?? []).map((c: any) => c.id);
-
-    if (disapprovedIds.length > 0) {
-      await admin.from("larkspur_companies").delete().in("id", disapprovedIds);
-    }
-  } catch {
-    // Cleanup is best-effort; if it fails we still show the page.
-  }
-
   // Fetch companies that don't have a lead yet
+  // Companies with leads are already approved and don't need triage.
+  // We filter in the view only — we never delete companies or leads.
   const { data: allCompanies } = await supabase
     .from("larkspur_companies")
     .select("*, larkspur_leads(id)")
