@@ -28,9 +28,10 @@ export default async function CompaniesToApprovePage() {
 
   const unapprovedCompanies = allCompanies?.filter(
     (c: any) =>
-      !c.larkspur_leads ||
-      c.larkspur_leads.length === 0 ||
-      !RECRUITMENT_INDUSTRIES.includes(c.industry || "")
+      (!c.larkspur_leads || c.larkspur_leads.length === 0) &&
+      !RECRUITMENT_INDUSTRIES.map((i) => i.toLowerCase()).includes(
+        (c.industry || "").toLowerCase()
+      )
   ) || [];
 
   return (
