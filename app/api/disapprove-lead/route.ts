@@ -22,17 +22,19 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  // Get the company_id before deleting the lead
+  // Soft-delete the lead instead of hard-deleting it
+  await admin
+    .from("larkspur_leads")
+    .update({ stage: "disqualified", updated_at: new Date().toISOString() })
+    .eq("id", lead_id);
+
+  // Soft-delete the company so re-ingestion won't resurrect it
   const { data: lead } = await admin
     .from("larkspur_leads")
     .select("company_id")
     .eq("id", lead_id)
     .single();
 
-  // Delete the lead
-  await admin.from("larkspur_leads").delete().eq("id", lead_id);
-
-  // Soft-delete the company so re-ingestion won't resurrect it
   if (lead?.company_id) {
     await admin
       .from("larkspur_companies")

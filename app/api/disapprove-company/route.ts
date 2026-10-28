@@ -28,8 +28,11 @@ export async function POST(request: Request) {
     .update({ disapproved_at: new Date().toISOString() })
     .eq("id", company_id);
 
-  // Also delete any associated leads
-  await admin.from("larkspur_leads").delete().eq("company_id", company_id);
+  // Soft-delete any associated leads instead of hard-deleting them
+  await admin
+    .from("larkspur_leads")
+    .update({ stage: "disqualified", updated_at: new Date().toISOString() })
+    .eq("company_id", company_id);
 
   return NextResponse.json({ success: true });
 }
