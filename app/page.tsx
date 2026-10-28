@@ -35,6 +35,38 @@ export default async function Dashboard() {
   const replyRate = totalLeads && contactedLeads ? Math.round((repliedLeads! / contactedLeads!) * 100) : 0;
   const meetingRate = repliedLeads ? Math.round((meetingLeads! / repliedLeads!) * 100) : 0;
 
+  // Messages sent today
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const { count: messagesToday } = await supabase
+    .from("larkspur_interactions")
+    .select("*", { count: "exact", head: true })
+    .eq("type", "whatsapp_sent")
+    .gte("sent_at", startOfToday.toISOString());
+
+  // Messages sent this week
+  const startOfWeek = new Date();
+  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+  const { count: messagesThisWeek } = await supabase
+    .from("larkspur_interactions")
+    .select("*", { count: "exact", head: true })
+    .eq("type", "whatsapp_sent")
+    .gte("sent_at", startOfWeek.toISOString());
+
+  // Total messages sent
+  const { count: totalMessagesSent } = await supabase
+    .from("larkspur_interactions")
+    .select("*", { count: "exact", head: true })
+    .eq("type", "whatsapp_sent");
+
+  // Replies received today
+  const { count: repliesToday } = await supabase
+    .from("larkspur_interactions")
+    .select("*", { count: "exact", head: true })
+    .eq("type", "whatsapp_reply")
+    .gte("replied_at", startOfToday.toISOString());
+
   // Fetch follow-ups due today
   const today = new Date().toISOString().split("T")[0];
   const { data: followUps } = await supabase
@@ -68,6 +100,22 @@ export default async function Dashboard() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="text-sm text-gray-600 mb-1">Meeting Rate</div>
           <div className="text-3xl font-bold text-purple-600">{meetingRate}%</div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-sm text-gray-600 mb-1">Messages Sent Today</div>
+          <div className="text-3xl font-bold text-blue-600">{messagesToday || 0}</div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-sm text-gray-600 mb-1">Messages Sent This Week</div>
+          <div className="text-3xl font-bold text-indigo-600">{messagesThisWeek || 0}</div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-sm text-gray-600 mb-1">Total Messages Sent</div>
+          <div className="text-3xl font-bold text-teal-600">{totalMessagesSent || 0}</div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-sm text-gray-600 mb-1">Replies Today</div>
+          <div className="text-3xl font-bold text-emerald-600">{repliesToday || 0}</div>
         </div>
       </div>
 
