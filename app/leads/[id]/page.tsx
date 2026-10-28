@@ -190,7 +190,7 @@ export default function LeadDetailPage({
       const res = await fetch("/api/mark-message-sent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lead_id: lead.id, follow_up_days: 1, contact_method: contactMethod }),
+        body: JSON.stringify({ lead_id: lead.id, follow_up_days: 7, contact_method: contactMethod }),
       });
 
       if (!res.ok) {

@@ -32,9 +32,12 @@ export async function POST(request: Request) {
   // Delete the lead
   await admin.from("larkspur_leads").delete().eq("id", lead_id);
 
-  // Delete the company too so it doesn't linger
+  // Soft-delete the company so re-ingestion won't resurrect it
   if (lead?.company_id) {
-    await admin.from("larkspur_companies").delete().eq("id", lead.company_id);
+    await admin
+      .from("larkspur_companies")
+      .update({ disapproved_at: new Date().toISOString() })
+      .eq("id", lead.company_id);
   }
 
   return NextResponse.json({ success: true });

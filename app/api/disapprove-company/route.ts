@@ -22,8 +22,11 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  // Delete the company
-  await admin.from("larkspur_companies").delete().eq("id", company_id);
+  // Soft-delete the company so re-ingestion won't resurrect it
+  await admin
+    .from("larkspur_companies")
+    .update({ disapproved_at: new Date().toISOString() })
+    .eq("id", company_id);
 
   // Also delete any associated leads
   await admin.from("larkspur_leads").delete().eq("company_id", company_id);

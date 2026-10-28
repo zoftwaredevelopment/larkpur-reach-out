@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { lead_id, follow_up_days = 1, contact_method = "whatsapp" } = (await request.json()) as {
+  const { lead_id, follow_up_days = 7, contact_method = "whatsapp" } = (await request.json()) as {
     lead_id: string;
     follow_up_days?: number;
     contact_method?: "whatsapp" | "email" | "phone";
