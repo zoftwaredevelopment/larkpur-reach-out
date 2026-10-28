@@ -35,36 +35,36 @@ export default async function Dashboard() {
   const replyRate = totalLeads && contactedLeads ? Math.round((repliedLeads! / contactedLeads!) * 100) : 0;
   const meetingRate = repliedLeads ? Math.round((meetingLeads! / repliedLeads!) * 100) : 0;
 
-  // Messages sent today
+  // Messages sent today (all channels)
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   const { count: messagesToday } = await supabase
     .from("larkspur_interactions")
     .select("*", { count: "exact", head: true })
-    .eq("type", "whatsapp_sent")
+    .in("type", ["whatsapp_sent", "email", "call"])
     .gte("sent_at", startOfToday.toISOString());
 
-  // Messages sent this week
+  // Messages sent this week (all channels)
   const startOfWeek = new Date();
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
   startOfWeek.setHours(0, 0, 0, 0);
   const { count: messagesThisWeek } = await supabase
     .from("larkspur_interactions")
     .select("*", { count: "exact", head: true })
-    .eq("type", "whatsapp_sent")
+    .in("type", ["whatsapp_sent", "email", "call"])
     .gte("sent_at", startOfWeek.toISOString());
 
-  // Total messages sent
+  // Total messages sent (all channels, all time)
   const { count: totalMessagesSent } = await supabase
     .from("larkspur_interactions")
     .select("*", { count: "exact", head: true })
-    .eq("type", "whatsapp_sent");
+    .in("type", ["whatsapp_sent", "email", "call"]);
 
-  // Replies received today
+  // Replies received today (all channels)
   const { count: repliesToday } = await supabase
     .from("larkspur_interactions")
     .select("*", { count: "exact", head: true })
-    .eq("type", "whatsapp_reply")
+    .in("type", ["whatsapp_reply", "email_reply"])
     .gte("replied_at", startOfToday.toISOString());
 
   // Fetch follow-ups due today
