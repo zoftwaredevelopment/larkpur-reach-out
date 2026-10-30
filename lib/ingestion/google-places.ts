@@ -174,14 +174,16 @@ async function upsertCompany(
 ): Promise<"inserted" | "duplicate" | "failed"> {
   const normalizedName = normalizeCompanyName(place.name);
 
-  // Check if company already exists
+  // Check if company already exists (including disapproved ones — prevents duplicates)
   const { data: existing } = await supabase
     .from("larkspur_companies")
-    .select("id")
+    .select("id, disapproved_at")
     .eq("normalized_name", normalizedName)
     .single();
 
   if (existing) {
+    // Company already in the system — skip to avoid duplicates.
+    // Disapproved companies stay disapproved; they won't be resurrected by re-ingestion.
     return "duplicate";
   }
 

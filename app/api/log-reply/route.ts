@@ -95,11 +95,11 @@ export async function POST(request: Request) {
 
   // --- Single message mode (existing behaviour) ---
   if (reply_content && !chat_history) {
+    const interactionType = outreach_method === "whatsapp" ? "whatsapp_reply" : outreach_method === "email" ? "email_reply" : "call";
     await admin.from("larkspur_interactions").insert({
       lead_id,
-      type: interactionTypeMap[outreach_method] || "whatsapp_reply",
+      type: interactionType,
       reply_content: reply_content.trim(),
-      outreach_method,
       replied_at: now,
     });
     await admin.from("larkspur_leads").update({
@@ -117,13 +117,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No messages could be parsed from the chat history." }, { status: 400 });
     }
 
+    // Deduplicate across all interaction types for this lead
     const { data: existing } = await admin
       .from("larkspur_interactions")
-      .select("reply_content")
-      .eq("lead_id", lead_id)
-      .eq("type", interactionTypeMap[outreach_method] || "whatsapp_reply");
+      .select("reply_content, type")
+      .eq("lead_id", lead_id);
 
     const existingContents = new Set((existing ?? []).map((i: any) => i.reply_content?.trim()).filter(Boolean));
+
+    const ownerName = "Mishael";
 
     const newMessages = parsed.filter((m) => {
       const content = m.content.trim();
@@ -131,14 +133,18 @@ export async function POST(request: Request) {
       return true;
     });
 
-    const insertRows = newMessages.map((m) => ({
-      lead_id,
-      type: interactionTypeMap[outreach_method] || "whatsapp_reply",
-      reply_content: m.content,
-      outreach_method,
-      replied_at: m.timestamp || now,
-      message_content: `WhatsApp reply received${m.sender ? ` from ${m.sender}` : ""}`,
-    }));
+    const insertRows = newMessages.map((m) => {
+      const isFromOwner = m.sender && (m.sender.toLowerCase().includes(ownerName.toLowerCase()) || m.sender.toLowerCase().includes("mishael"));
+      return {
+        lead_id,
+        type: isFromOwner ? "whatsapp_sent" : "whatsapp_reply",
+        reply_content: m.content,
+        replied_at: m.timestamp || now,
+        message_content: isFromOwner
+          ? `WhatsApp message sent to ${m.sender || "contact"}`
+          : `WhatsApp reply received from ${m.sender || "contact"}`,
+      };
+    });
 
     let added = 0;
     if (insertRows.length > 0) {

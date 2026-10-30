@@ -18,17 +18,19 @@ export default async function CompaniesToApprovePage() {
     redirect("/login");
   }
 
-  // Fetch companies that don't have a lead yet
+  // Fetch companies that don't have a lead yet AND aren't disapproved
   // Companies with leads are already approved and don't need triage.
-  // We filter in the view only — we never delete companies or leads.
+  // Disapproved companies are excluded so you don't have to skip over them.
   const { data: allCompanies } = await supabase
     .from("larkspur_companies")
     .select("*, larkspur_leads(id)")
+    .is("disapproved_at", null)
     .order("created_at", { ascending: false });
 
   const unapprovedCompanies = allCompanies?.filter(
     (c: any) =>
       (!c.larkspur_leads || c.larkspur_leads.length === 0) &&
+      !c.disapproved_at &&
       !RECRUITMENT_INDUSTRIES.map((i) => i.toLowerCase()).includes(
         (c.industry || "").toLowerCase()
       )
