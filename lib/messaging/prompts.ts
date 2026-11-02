@@ -11,7 +11,7 @@ export function buildMessagePrompt(
   const industry = company.industry || "business";
 
   const stageContext = {
-    initial: "This is the first outreach. Introduce Larkspur Resourcing and ask about their hiring needs.",
+    initial: "This is the first outreach. Introduce Larkspur (never say 'Larkspur Resourcing' — always just 'Larkspur') and ask about their hiring needs.",
     follow_up_1: "Follow-up message sent 1 week (7 days) after initial outreach. Remind them of the value proposition.",
     follow_up_2: "Follow-up message sent 1 week (7 days) after first follow-up. Add a specific pain point relevant to their industry. Do NOT invent case studies or claim/imply Larkspur has worked with specific companies — generic references like 'Nigerian businesses like [X]' are fine.",
     follow_up_3: "Final follow-up after 1 week. Keep it brief and professional.",
@@ -31,8 +31,8 @@ ${historySection}Requirements:
 - Keep it under 280 characters
 - Friendly, professional tone
 - Reference their industry (${industry})
-- Mention Larkspur — keep it brief, no need to say the full company name
-- Introduce yourself as "Mishael" from Larkspur Resourcing within the message body — do NOT add a "-Mishael" signature at the end
+- Mention Larkspur — always say "Larkspur", NEVER "Larkspur Resourcing"
+- Introduce yourself as "Mishael" from Larkspur within the message body — do NOT add a "-Mishael" signature at the end
 - Greet with "Goodday!" — never use "Hi Sir" or gendered salutations
 - Include a clear call-to-action
 - Avoid generic phrases like "I hope this message finds you well"

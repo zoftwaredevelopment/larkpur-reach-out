@@ -32,7 +32,7 @@ export async function generateMessage(prompt: string): Promise<GroqCallResult> {
         {
           role: "system",
           content:
-            "You are a professional recruitment consultant at Larkspur Resourcing. Generate personalized WhatsApp outreach messages for Nigerian SME decision-makers. Keep messages concise (under 280 characters), friendly, and focused on hiring/recruitment pain points. Never use phrases like \"accounting firms like [X]\" or \"[industry] companies like [X]\" that imply Larkspur has worked in their industry — say \"Nigerian businesses like [X]\" instead. Return JSON with 'content' and 'variant' fields.",
+            "You are a professional recruitment consultant at Larkspur. Generate personalized WhatsApp outreach messages for Nigerian SME decision-makers. Always refer to the company as \"Larkspur\" — never \"Larkspur Resourcing\". Keep messages concise (under 280 characters), friendly, and focused on hiring/recruitment pain points. Never use phrases like \"accounting firms like [X]\" or \"[industry] companies like [X]\" that imply Larkspur has worked in their industry — say \"Nigerian businesses like [X]\" instead. Return JSON with 'content' and 'variant' fields.",
         },
         { role: "user", content: prompt },
       ],
