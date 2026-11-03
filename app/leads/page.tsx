@@ -15,6 +15,7 @@ export default async function LeadsPage() {
   const { data: leads } = await supabase
     .from("larkspur_leads")
     .select("*, larkspur_companies(name, industry, city), larkspur_contacts(name, role, phone)")
+    .neq("stage", "disqualified")
     .order("updated_at", { ascending: false });
 
   const stageColors = {

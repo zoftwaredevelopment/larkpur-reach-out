@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { WhatsAppPhoneLink } from "./WhatsAppPhoneLink";
 
 export default function LeadDetailPage({
   params,
@@ -16,6 +17,7 @@ export default function LeadDetailPage({
   const [lead, setLead] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [disapproving, setDisapproving] = useState(false);
   const [generatedMessage, setGeneratedMessage] = useState<string | null>(null);
   const [messageError, setMessageError] = useState<string | null>(null);
   const [replyInput, setReplyInput] = useState("");
@@ -80,7 +82,7 @@ export default function LeadDetailPage({
   const company = lead.larkspur_companies as any;
   const contact = lead.larkspur_contacts as any;
 
-  const handleGenerateMessage = async (stage: string) => {
+  const handleGenerateMessage = async (stage: string): Promise<string | null> => {
     setGenerating(true);
     setMessageError(null);
     setGeneratedMessage(null);
@@ -104,9 +106,16 @@ export default function LeadDetailPage({
       }
 
       const data = await res.json();
-      setGeneratedMessage(data.message?.content || "");
+      const content = data.message?.content?.trim();
+      if (!content) {
+        throw new Error("Groq returned an empty message");
+      }
+
+      setGeneratedMessage(content);
+      return content;
     } catch (err: any) {
       setMessageError(err.message || "Something went wrong");
+      return null;
     } finally {
       setGenerating(false);
     }
@@ -211,7 +220,10 @@ export default function LeadDetailPage({
   };
 
   const disapprove = async () => {
-    if (!confirm("Disapprove this lead? This will permanently delete the company and lead from your pipeline.")) return;
+    if (!confirm("Remove this lead from your active pipeline? It will be marked as disqualified and hidden from your leads.")) return;
+
+    setDisapproving(true);
+    setMessageError(null);
 
     try {
       const res = await fetch("/api/disapprove-lead", {
@@ -226,8 +238,10 @@ export default function LeadDetailPage({
       }
 
       router.push("/leads");
+      router.refresh();
     } catch (err: any) {
       setMessageError(err.message || "Something went wrong");
+      setDisapproving(false);
     }
   };
 
@@ -262,11 +276,33 @@ export default function LeadDetailPage({
   return (
     <div className="max-w-7xl mx-auto p-8">
       <Link href="/leads">Back to Leads</Link>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">{company?.name}</h1>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-gray-900">{company?.name}</h1>
+        <button
+          onClick={disapprove}
+          disabled={disapproving}
+          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 text-sm font-medium"
+        >
+          {disapproving ? "Removing…" : "Disapprove lead"}
+        </button>
+      </div>
       <div className="grid grid-cols-2 gap-4 text-sm mb-6">
         <div><span className="font-medium">Industry:</span> {company?.industry || "—"}</div>
         <div><span className="font-medium">Location:</span> {company?.city}, {company?.state}</div>
-        <div><span className="font-medium">Phone:</span> {company?.phone || "—"}</div>
+        <div>
+          <span className="font-medium">Phone:</span>{" "}
+          {company?.phone ? (
+            <WhatsAppPhoneLink
+              phone={company.phone}
+              message={generatedMessage}
+              onGenerateMessage={() => handleGenerateMessage("initial")}
+              onOpen={() => setContactMethod("whatsapp")}
+              onError={setMessageError}
+            />
+          ) : (
+            "—"
+          )}
+        </div>
         <div>
           <span className="font-medium">Website:</span>{" "}
           {company?.website ? (
@@ -291,7 +327,20 @@ export default function LeadDetailPage({
           <div className="space-y-2 text-sm">
             <div><span className="font-medium">Name:</span> {contact.name}</div>
             <div><span className="font-medium">Role:</span> {contact.role}</div>
-            <div><span className="font-medium">Phone:</span> {contact.phone}</div>
+            <div>
+              <span className="font-medium">Phone:</span>{" "}
+              {contact.phone ? (
+                <WhatsAppPhoneLink
+                  phone={contact.phone}
+                  message={generatedMessage}
+                  onGenerateMessage={() => handleGenerateMessage("initial")}
+                  onOpen={() => setContactMethod("whatsapp")}
+                  onError={setMessageError}
+                />
+              ) : (
+                "—"
+              )}
+            </div>
           </div>
         ) : <p className="text-gray-500">No contact</p>}
       </div>
