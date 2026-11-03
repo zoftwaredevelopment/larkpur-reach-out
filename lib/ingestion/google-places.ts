@@ -201,30 +201,15 @@ async function upsertCompany(
     notes: null,
   };
 
-  const { data: insertedCompany, error: insertError } = await supabase
+  const { error: insertError } = await supabase
     .from("larkspur_companies")
-    .insert(row)
-    .select("id")
-    .single();
+    .insert(row);
 
   if (insertError) {
     console.error(`Failed to insert company ${place.name}:`, insertError.message);
     return "failed";
   }
 
-  // Auto-approve: every ingested company becomes a lead (no triage step)
-  const { error: leadError } = await supabase
-    .from("larkspur_leads")
-    .insert({
-      company_id: insertedCompany.id,
-      stage: "prospect",
-      source: "google_places",
-    });
-
-  if (leadError) {
-    console.error(`Failed to create lead for company ${place.name}:`, leadError.message);
-    // Company was inserted; lead creation failure is non-fatal
-  }
-
+  // Leave new companies in triage; the approval flow creates their leads.
   return "inserted";
 }
