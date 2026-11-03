@@ -18,13 +18,12 @@ export default async function CompaniesToApprovePage() {
     redirect("/login");
   }
 
-  // Fetch companies that don't have a lead yet AND aren't disapproved
+  // Fetch companies that don't have a lead yet.
   // Companies with leads are already approved and don't need triage.
-  // Disapproved companies are excluded so you don't have to skip over them.
+  // Disapproved companies are filtered out client-side (safe check for missing column).
   const { data: allCompanies } = await supabase
     .from("larkspur_companies")
     .select("*, larkspur_leads(id)")
-    .is("disapproved_at", null)
     .order("created_at", { ascending: false });
 
   const unapprovedCompanies = allCompanies?.filter(

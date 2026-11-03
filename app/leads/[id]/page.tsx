@@ -393,82 +393,50 @@ export default function LeadDetailPage({
         </button>
       </div>
 
-      {/* Conversation History */}
+      {/* Conversation History (chat style) */}
       {interactions.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4">Conversation History</h2>
-          <div className="space-y-4">
-            {interactions.map((int: any) => (
-              <div
-                key={int.id}
-                className={`p-3 rounded ${
-                  int.type === "whatsapp_reply"
-                    ? "bg-green-50 border border-green-100"
-                    : "bg-blue-50 border border-blue-100"
-                }`}
-              >
-                <div className="flex justify-between items-start mb-1">
-                  <span
-                    className={`text-xs font-semibold uppercase ${
-                      int.type === "whatsapp_reply" ? "text-green-800" : "text-blue-800"
+        <div className="bg-gray-50 rounded-lg shadow p-4 mb-6 min-h-[300px]">
+          <div className="flex flex-col h-full max-h-[500px] overflow-y-auto pr-2 space-y-2 pb-2">
+            {interactions.map((int: any) => {
+              const isSent = int.type === "whatsapp_sent";
+              const timestamp = new Date(
+                int.replied_at || int.created_at || int.sent_at || int.created_at
+              ).toLocaleString([], {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+              return (
+                <div
+                  key={int.id}
+                  className={`max-w-[85%] ${
+                    isSent ? "ml-auto" : "mr-auto"
+                  }`}
+                >
+                  <div
+                    className={`p-3 rounded-lg ${
+                      isSent
+                        ? "bg-blue-600 text-white rounded-tr-none"
+                        : "bg-white text-gray-900 border border-gray-200 rounded-tl-none"
                     }`}
                   >
-                    {int.type === "whatsapp_reply" ? "Lead Replied" : "Message Sent"}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {new Date(int.created_at).toLocaleString()}
-                  </span>
+                    <p className="text-sm">{int.reply_content || int.message_content?.replace(/^WhatsApp message sent to .+?:\s*/, "").replace(/^WhatsApp reply received from .+?:\s*/, "") || ""}</p>
+                    <div className="flex justify-between items-start mt-1">
+                      <span className={`text-[10px] ${isSent ? "text-blue-100" : "text-gray-500"}`}>
+                        {isSent ? "You" : contact?.name || "Lead"}
+                      </span>
+                      <span className={`text-[10px] ${isSent ? "text-blue-100" : "text-gray-500"}`}>
+                        {timestamp}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-sm text-gray-800">
-                  {int.type === "whatsapp_reply" ? int.reply_content : int.message_content}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
-
-      {/* Lead's Response */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Log Lead's Response</h2>
-        <p className="text-sm text-gray-600 mb-4">
-          Enter what the lead said on WhatsApp so follow-up messages can reference
-          their actual response.
-        </p>
-
-        <textarea
-          value={replyInput}
-          onChange={(e) => setReplyInput(e.target.value)}
-          placeholder="e.g. 'Yes, we are hiring. Send me more info.' or 'Not interested right now.'"
-          rows={3}
-          className="w-full p-3 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-        />
-
-        <div className="mt-4 flex items-center gap-3">
-          <button
-            onClick={saveReply}
-            disabled={replySaving || !replyInput.trim()}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
-          >
-            {replySaving ? "Saving…" : "Save Response"}
-          </button>
-          <button
-            onClick={passToOwner}
-            className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm font-medium"
-          >
-            Pass to Business Owner
-          </button>
-          <button
-            onClick={disapprove}
-            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium"
-          >
-            Disapprove
-          </button>
-          <span className="text-xs text-gray-500 italic">
-            {lead.stage === "meeting" ? "✓ Meeting-ready" : ""}
-          </span>
-        </div>
-      </div>
 
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold mb-4">Generate WhatsApp Message</h2>

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { RunIngestionButton } from "./RunIngestionButton";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -90,14 +91,7 @@ export default async function SettingsPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Ingestion History</h2>
-            <form action="/api/ingest" method="GET">
-              <button
-                type="submit"
-                className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium"
-              >
-                Run Ingestion
-              </button>
-            </form>
+            <RunIngestionButton />
           </div>
           {ingestionRuns && ingestionRuns.length > 0 ? (
             <div className="space-y-3">
