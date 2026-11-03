@@ -44,3 +44,23 @@ ${historySection}Requirements:
 
 Return JSON: { "content": "message text", "variant": "A" }`;
 }
+
+export function buildEmailPrompt(company: Company, contact: Contact | null): string {
+  const contactName = contact?.name || "there";
+  const industry = company.industry || "business";
+
+  return `Write an initial recruitment outreach email to ${contactName} at ${company.name}, a ${industry} company in ${company.city || "Lagos"}.
+
+Requirements:
+- Subject: clear, natural, under 70 characters, with no clickbait or false urgency
+- Body: 80–120 words of plain text, friendly and professional
+- Greet with "Goodday!" and introduce Mishael from Larkspur
+- Ask about their current hiring needs and include a clear, low-pressure call-to-action
+- Reference their industry without claiming Larkspur has clients in that industry
+- Do not invent growth, vacancies, case studies, or other facts about the company
+- Write the company name exactly as supplied, without adding emphasis or changing its capitalization
+- Use Nigerian English conventions
+- End with a simple sign-off, then "Mishael" on one line and "Larkspur" on the next line
+
+Return JSON: { "subject": "email subject", "body": "plain text email body" }`;
+}

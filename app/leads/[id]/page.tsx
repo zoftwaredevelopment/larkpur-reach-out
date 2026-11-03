@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { WhatsAppPhoneLink } from "./WhatsAppPhoneLink";
+import { EmailFallbackLink } from "./EmailFallbackLink";
 
 export default function LeadDetailPage({
   params,
@@ -303,6 +304,7 @@ export default function LeadDetailPage({
             "—"
           )}
         </div>
+        <EmailFallbackLink key={lead.id} leadId={lead.id} onOpen={() => setContactMethod("email")} />
         <div>
           <span className="font-medium">Website:</span>{" "}
           {company?.website ? (
