@@ -11,6 +11,14 @@ export type Industry =
   | "agriculture"
   | "recruitment"
   | "real_estate"
+  | "sales"
+  | "marketing"
+  | "customer_service"
+  | "administration"
+  | "operations"
+  | "management"
+  | "oil_gas"
+  | "blue_collar"
   | "other";
 
 export type LeadStage =

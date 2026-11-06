@@ -1,9 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const SEARCHES = [
-  { label: "Law firms Lagos", industry: "law_firm", city: "Lagos", keywords: ["law firm", "lawyer", "attorney", "legal services"] },
-  { label: "Accounting firms Lagos", industry: "accounting", city: "Lagos", keywords: ["accounting firm", "accountant", "tax consultant"] },
-  { label: "Consulting firms Lagos", industry: "consulting", city: "Lagos", keywords: ["consulting firm", "business consultant", "management consultant"] },
+  { label: "Sales companies Lagos", industry: "sales", city: "Lagos", keywords: ["sales company", "sales agency", "business development"] },
+  { label: "Marketing agencies Lagos", industry: "marketing", city: "Lagos", keywords: ["marketing agency", "digital marketing", "advertising agency"] },
+  { label: "Customer service Lagos", industry: "customer_service", city: "Lagos", keywords: ["customer service", "call center", "customer support"] },
+  { label: "Administration services Lagos", industry: "administration", city: "Lagos", keywords: ["administration", "office services", "administrative services"] },
+  { label: "Operations companies Lagos", industry: "operations", city: "Lagos", keywords: ["operations company", "business operations", "office management"] },
+  { label: "Management firms Lagos", industry: "management", city: "Lagos", keywords: ["management consulting", "project management", "general manager"] },
 ];
 
 export async function seed() {

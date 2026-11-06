@@ -34,6 +34,14 @@ const INDUSTRY_SEARCH_TERMS: Record<Industry, string[]> = {
   agriculture: ["farm", "agricultural", "agribusiness"],
   recruitment: ["recruitment agency", "staffing agency", "hr consultant"],
   real_estate: ["real estate", "property management", "estate agent"],
+  sales: ["sales company", "sales agency", "business development", "account executive"],
+  marketing: ["marketing agency", "digital marketing", "advertising agency", "branding agency"],
+  customer_service: ["customer service", "call center", "contact center", "customer support"],
+  administration: ["administration", "office services", "administrative services", "virtual assistant"],
+  operations: ["operations company", "business operations", "operations management", "office management"],
+  management: ["management consulting", "project management", "operations manager", "general manager"],
+  oil_gas: ["oil and gas", "petroleum", "oilfield", "energy exploration"],
+  blue_collar: ["construction", "plumbing", "electrical", "welding", "handyman"],
   other: [],
 };
 

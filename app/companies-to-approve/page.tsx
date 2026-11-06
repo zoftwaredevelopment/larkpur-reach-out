@@ -6,7 +6,8 @@ import { ApproveButton } from "./ApproveButton";
 
 export const dynamic = "force-dynamic";
 
-const RECRUITMENT_INDUSTRIES = ["Recruitment", "Staffing", "Headhunting"];
+const TARGET_INDUSTRIES = ["sales", "marketing", "customer_service", "administration", "operations", "management"];
+const EXCLUDED_INDUSTRIES = ["oil_gas", "blue_collar"];
 
 export default async function CompaniesToApprovePage() {
   const supabase = await createClient();
@@ -30,9 +31,8 @@ export default async function CompaniesToApprovePage() {
     (c: any) =>
       (!c.larkspur_leads || c.larkspur_leads.length === 0) &&
       !c.disapproved_at &&
-      !RECRUITMENT_INDUSTRIES.map((i) => i.toLowerCase()).includes(
-        (c.industry || "").toLowerCase()
-      )
+      TARGET_INDUSTRIES.includes((c.industry || "").toLowerCase()) &&
+      !EXCLUDED_INDUSTRIES.includes((c.industry || "").toLowerCase())
   ) || [];
 
   return (
