@@ -58,6 +58,11 @@ export interface Company {
   size: string | null;
   linkedin_url: string | null;
   notes: string | null;
+  years_established: number | null;
+  monthly_salary: number | null;
+  deal_value: number | null;
+  potential_talent: string | null;
+  touch_point: string | null;
   created_at: string;
 }
 
@@ -84,6 +89,8 @@ export interface Lead {
   next_follow_up_at: string | null;
   priority: number;
   notes: string | null;
+  objections: string | null;
+  next_action: string | null;
   created_at: string;
   updated_at: string;
 }
