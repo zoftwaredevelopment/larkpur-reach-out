@@ -32,7 +32,7 @@ export default async function Dashboard() {
     .select("*", { count: "exact", head: true })
     .eq("stage", "meeting");
 
-  const replyRate = totalLeads && contactedLeads ? Math.round((repliedLeads! / contactedLeads!) * 100) : 0;
+  const replyRate = totalLeads ? Math.round((repliedLeads! / totalLeads) * 100) : 0;
   const meetingRate = repliedLeads ? Math.round((meetingLeads! / repliedLeads!) * 100) : 0;
 
   // Messages sent today (all channels)
