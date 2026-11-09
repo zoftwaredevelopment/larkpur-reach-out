@@ -60,7 +60,7 @@ Requirements:
 - Do not invent growth, vacancies, case studies, or other facts about the company
 - Write the company name exactly as supplied, without adding emphasis or changing its capitalization
 - Use Nigerian English conventions
-- End with a simple sign-off, then "Mishael" on one line and "Larkspur" on the next line
+- End with a simple sign-off (no signature line — your email app handles that)
 
 Return JSON: { "subject": "email subject", "body": "plain text email body" }`;
 }
