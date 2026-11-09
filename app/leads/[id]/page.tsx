@@ -97,7 +97,7 @@ export default function LeadDetailPage({
     setEditValue("");
   };
 
-const [phoneEditing, setPhoneEditing] = useState<string | null>(null);
+  const [phoneEditing, setPhoneEditing] = useState<string | null>(null);
   const [phoneEditValue, setPhoneEditValue] = useState("");
   const [emailEditing, setEmailEditing] = useState<string | null>(null);
   const [emailEditValue, setEmailEditValue] = useState("");
