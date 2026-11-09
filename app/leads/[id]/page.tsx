@@ -83,6 +83,57 @@ export default function LeadDetailPage({
   const company = lead.larkspur_companies as any;
   const contact = lead.larkspur_contacts as any;
 
+  // Editable field state
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  const startEdit = (field: string, value: string | null) => {
+    setEditValue(value || "");
+    setEditingField(field);
+  };
+
+  const cancelEdit = () => {
+    setEditingField(null);
+    setEditValue("");
+  };
+
+const [phoneEditing, setPhoneEditing] = useState<string | null>(null);
+  const [phoneEditValue, setPhoneEditValue] = useState("");
+  const [emailEditing, setEmailEditing] = useState<string | null>(null);
+  const [emailEditValue, setEmailEditValue] = useState("");
+
+  const startContactEdit = (field: string, value: string | null) => {
+    if (field === "phone") {
+      setPhoneEditValue(value || "");
+      setPhoneEditing(field);
+    } else if (field === "email") {
+      setEmailEditValue(value || "");
+      setEmailEditing(field);
+    }
+  };
+
+  const cancelContactEdit = () => {
+    setPhoneEditing(null);
+    setEmailEditing(null);
+    setPhoneEditValue("");
+    setEmailEditValue("");
+  };
+
+  const saveContactEdit = async (field: string, recordId: string) => {
+    try {
+      await supabase
+        .from("larkspur_contacts")
+        .update({ [field]: field === "phone" ? phoneEditValue : emailEditValue })
+        .eq("id", recordId);
+      setPhoneEditing(null);
+      setEmailEditing(null);
+      setPhoneEditValue("");
+      setEmailEditValue("");
+    } catch (err) {
+      console.error("Save error:", err);
+    }
+  };
+
   const handleGenerateMessage = async (stage: string): Promise<string | null> => {
     setGenerating(true);
     setMessageError(null);
@@ -321,6 +372,13 @@ export default function LeadDetailPage({
           )}
         </div>
         <div><span className="font-medium">Stage:</span> <span className="font-bold">{lead.stage}</span></div>
+        <div><span className="font-medium">Years Established:</span> {company?.years_established ?? "—"}</div>
+        <div><span className="font-medium">Monthly Salary:</span> {company?.monthly_salary ? `$${company.monthly_salary}` : "—"}</div>
+        <div><span className="font-medium">Deal Value:</span> {company?.deal_value ? `$${company.deal_value}` : "—"}</div>
+        <div><span className="font-medium">Potential Talent:</span> {company?.potential_talent ?? "—"}</div>
+        <div><span className="font-medium">Touch Point:</span> {company?.touch_point ?? "—"}</div>
+        <div><span className="font-medium">Objections:</span> {lead.objections ?? "—"}</div>
+        <div><span className="font-medium">Next Action:</span> {lead.next_action ?? "—"}</div>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -331,16 +389,85 @@ export default function LeadDetailPage({
             <div><span className="font-medium">Role:</span> {contact.role}</div>
             <div>
               <span className="font-medium">Phone:</span>{" "}
-              {contact.phone ? (
-                <WhatsAppPhoneLink
-                  phone={contact.phone}
-                  message={generatedMessage}
-                  onGenerateMessage={() => handleGenerateMessage("initial")}
-                  onOpen={() => setContactMethod("whatsapp")}
-                  onError={setMessageError}
-                />
+              {phoneEditing === "phone" ? (
+                <>
+                  <input
+                    type="text"
+                    value={phoneEditValue}
+                    onChange={(e) => setPhoneEditValue(e.target.value)}
+                    className="border border-gray-300 rounded px-2 py-1 text-sm"
+                  />
+                  <button
+                    onClick={() => saveContactEdit("phone", contact.id)}
+                    className="text-xs text-blue-600 px-2 py-1 hover:text-blue-800 mr-1"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setPhoneEditing(null)}
+                    className="text-xs text-gray-600 px-2 py-1 hover:text-gray-800"
+                  >
+                    Cancel
+                  </button>
+                </>
               ) : (
-                "—"
+                <>
+                  {contact.phone ? (
+                    <span
+                      onClick={() => startContactEdit("phone", contact.phone)}
+                      className="cursor-pointer text-blue-600 hover:underline"
+                    >
+                      {contact.phone}
+                    </span>
+                  ) : (
+                    <span onClick={() => startContactEdit("phone", null)} className="cursor-pointer text-blue-600 hover:underline">
+                      Add phone
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+            <div>
+              <span className="font-medium">Email:</span>{" "}
+              {emailEditing === "email" ? (
+                <>
+                  <input
+                    type="email"
+                    value={emailEditValue}
+                    onChange={(e) => setEmailEditValue(e.target.value)}
+                    className="border border-gray-300 rounded px-2 py-1 text-sm"
+                  />
+                  <button
+                    onClick={() => saveContactEdit("email", contact.id)}
+                    className="text-xs text-blue-600 px-2 py-1 hover:text-blue-800 mr-1"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setEmailEditing(null)}
+                    className="text-xs text-gray-600 px-2 py-1 hover:text-gray-800"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  {contact.email ? (
+                    <span
+                      onClick={() => startContactEdit("email", contact.email)}
+                      className="cursor-pointer text-blue-600 hover:underline"
+                    >
+                      {contact.email}
+                    </span>
+                  ) : (
+                    <span
+                      onClick={() => startContactEdit("email", null)}
+                      className="cursor-pointer text-blue-600 hover:underline"
+                    >
+                      Add email
+                    </span>
+                  )}
+                </>
               )}
             </div>
           </div>
