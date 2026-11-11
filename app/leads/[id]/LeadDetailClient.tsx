@@ -1,11 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { WhatsAppPhoneLink } from "./WhatsAppPhoneLink";
 import { EmailFallbackLink } from "./EmailFallbackLink";
 import { createClient } from "@/lib/supabase/client";
+
+
 
 interface LeadDetailProps {
   lead: any;
@@ -19,31 +22,8 @@ export function LeadDetailClient({ lead, interactions, company, contact }: LeadD
   const supabase = createClient();
 
   const [generating, setGenerating] = useState(false);
-  const [disapproving, setDisapproving] = useState(false);
   const [generatedMessage, setGeneratedMessage] = useState<string | null>(null);
   const [messageError, setMessageError] = useState<string | null>(null);
-  const [replyInput, setReplyInput] = useState("");
-  const [replySaving, setReplySaving] = useState(false);
-  const [chatHistoryInput, setChatHistoryInput] = useState("");
-  const [chatHistorySaving, setChatHistorySaving] = useState(false);
-  const [chatHistoryResult, setChatHistoryResult] = useState<{ added: number; total: number; already: number } | null>(null);
-  const [contactMethod, setContactMethod] = useState<"whatsapp" | "email" | "phone">("whatsapp");
-
-  const [editingField, setEditingField] = useState<string | null>(null);
-  const [editValue, setEditValue] = useState("");
-  const startEdit = (field: string, value: string | null) => {
-    setEditValue(value || "");
-    setEditingField(field);
-  };
-  const cancelEdit = () => {
-    setEditingField(null);
-    setEditValue("");
-  };
-
-  const [phoneEditing, setPhoneEditing] = useState<string | null>(null);
-  const [phoneEditValue, setPhoneEditValue] = useState("");
-  const [emailEditing, setEmailEditing] = useState<string | null>(null);
-  const [emailEditValue, setEmailEditValue] = useState("");
 
   const handleGenerateMessage = async (stage: string): Promise<string | null> => {
     setGenerating(true);
@@ -57,7 +37,6 @@ export function LeadDetailClient({ lead, interactions, company, contact }: LeadD
         .order("created_at", { ascending: false })
         .limit(1)
         .single();
-      const contactMethod = lead.last_contact_method as "whatsapp" | "email" | "phone";
       const latestReplyContent = latestReply?.reply_content || latestReply?.message_content;
       if (stage === "replied") return latestReplyContent || "Meeting requested";
       if (stage === "meeting") return "Meeting requested";
@@ -100,6 +79,40 @@ export function LeadDetailClient({ lead, interactions, company, contact }: LeadD
           <h1 className="text-3xl font-bold text-gray-900">{lead.larkspur_companies?.name}</h1>
           <p className="text-gray-600 mt-1">Lead details</p>
         </div>
+        <div className="flex gap-2">
+          <Link href="/leads" className="text-blue-600 hover:text-blue-800 font-medium">
+            ← Back to Leads
+          </Link>
+          <Link href="/follow-ups" className="px-4 py-2 bg-amber-100 text-amber-900 rounded hover:bg-amber-200 text-sm font-medium border border-amber-200">
+            ⚠ View Follow-ups Needed
+          </Link>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="p-6 border-b">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Company</p>
+              <p className="text-lg font-medium text-gray-900">{lead.larkspur_companies?.name}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Industry</p>
+              <p className="text-lg font-medium text-gray-900">{lead.larkspur_companies?.industry || "Not specified"}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">City</p>
+              <p className="text-lg font-medium text-gray-900">{lead.larkspur_companies?.city || "Not specified"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Stage</p>
+              <p className="text-lg font-medium text-gray-900">{lead.stage}</p>
+            </div>
+          </div>
+        </div>
+
         <div className="p-6">
           <h2 className="text-lg font-semibold mb-4">Conversation History</h2>
           {interactions.length === 0 ? (
@@ -116,6 +129,7 @@ export function LeadDetailClient({ lead, interactions, company, contact }: LeadD
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
+
                   {interactions.map((int: any) => {
                     const isSent = int.type === "whatsapp_sent" || int.type === "email";
                     const timestamp = int.created_at ? new Date(int.created_at).toLocaleString() : "Just now";
@@ -123,7 +137,7 @@ export function LeadDetailClient({ lead, interactions, company, contact }: LeadD
                       <tr key={int.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
-                            {isSent ? int.message_content?.replace(/^WhatsApp message sent to .+?:\\s*/, "").replace(/^WhatsApp reply received from .+?:\\s*/, "") : int.reply_content || int.message_content?.replace(/^WhatsApp message sent to .+?:\\s*/, "").replace(/^WhatsApp reply received from .+?:\\s*/, "") || ""}
+                            {isSent ? int.message_content?.replace(/^WhatsApp message sent to .+?:/, "").replace(/^WhatsApp reply received from .+?:/, "") : int.reply_content || int.message_content?.replace(/^WhatsApp message sent to .+?:/, "").replace(/^WhatsApp reply received from .+?:/, "") || ""}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
