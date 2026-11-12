@@ -19,11 +19,15 @@ export default function LoginPage() {
       email,
       password,
     });
+
     if (error) {
       setMessage(error.message);
+      setLoading(false);
+      return;
     }
 
-    setLoading(false);
+    // Success → hard navigate so middleware + cookies are fully applied
+    window.location.href = "/";
   };
 
   return (
@@ -39,7 +43,10 @@ export default function LoginPage() {
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSignIn}>
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700"
+            >
               Email address
             </label>
             <input
@@ -54,7 +61,10 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700"
+            >
               Password
             </label>
             <input
@@ -77,7 +87,7 @@ export default function LoginPage() {
             {loading ? "Processing..." : "Sign In"}
           </button>
           {message && (
-            <p className="text-sm text-center text-gray-600">{message}</p>
+            <p className="text-sm text-center text-red-600">{message}</p>
           )}
         </form>
       </div>
