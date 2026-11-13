@@ -44,6 +44,8 @@ export function LeadDetailClient({
   const [messageError, setMessageError] = useState<string | null>(null);
   const [interactions, setInteractions] = useState(initialInteractions || []);
   const [clearingHistory, setClearingHistory] = useState(false);
+  const [initialMessageSentAt, setInitialMessageSentAt] = useState<string | null>(lead.initial_message_sent_at || null);
+  const [savingInitialMessageStatus, setSavingInitialMessageStatus] = useState(false);
   const [contactMethod, setContactMethod] = useState<"whatsapp" | "email" | "phone">("whatsapp");
 
   // Chat history paste
@@ -133,6 +135,29 @@ export function LeadDetailClient({
       setMessageError(err.message || "Something went wrong");
     } finally {
       setChatHistorySaving(false);
+    }
+  };
+
+  const handleInitialMessageSentChange = async (checked: boolean) => {
+    setSavingInitialMessageStatus(true);
+    setMessageError(null);
+
+    const timestamp = checked ? new Date().toISOString() : null;
+
+    try {
+      const { error } = await supabase
+        .from("larkspur_leads")
+        .update({ initial_message_sent_at: timestamp })
+        .eq("id", lead.id);
+
+      if (error) throw new Error(error.message);
+
+      setInitialMessageSentAt(timestamp);
+      router.refresh();
+    } catch (err: any) {
+      setMessageError(err.message || "Could not update initial message status.");
+    } finally {
+      setSavingInitialMessageStatus(false);
     }
   };
 
@@ -238,6 +263,26 @@ export function LeadDetailClient({
             Disapprove
           </button>
         </div>
+      </div>
+
+      {/* Initial message confirmation */}
+      <div className="bg-white rounded-lg shadow px-6 py-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <label className="flex items-center gap-3 text-sm font-medium text-gray-900">
+          <input
+            type="checkbox"
+            checked={Boolean(initialMessageSentAt)}
+            onChange={(e) => handleInitialMessageSentChange(e.target.checked)}
+            disabled={savingInitialMessageStatus}
+            className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500 disabled:opacity-50"
+          />
+          <span>Initial Message Sent</span>
+        </label>
+        <p className="text-sm text-gray-500">
+          {initialMessageSentAt
+            ? `Confirmed: ${formatTime(initialMessageSentAt)}`
+            : "Not confirmed yet"}
+          {savingInitialMessageStatus ? " · Saving…" : ""}
+        </p>
       </div>
 
       {/* Company + Contact */}
