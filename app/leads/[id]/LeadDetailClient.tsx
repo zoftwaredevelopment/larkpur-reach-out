@@ -14,6 +14,22 @@ interface LeadDetailProps {
   contact: any;
 }
 
+function formatTime(iso: string) {
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    // Stable, locale-independent format (avoids hydration mismatch)
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return `${dd}/${mm}/${yyyy}, ${hh}:${min}`;
+  } catch {
+    return "";
+  }
+}
+
 export function LeadDetailClient({
   lead,
   interactions: initialInteractions,
@@ -27,7 +43,17 @@ export function LeadDetailClient({
   const [generatedMessage, setGeneratedMessage] = useState<string | null>(null);
   const [messageError, setMessageError] = useState<string | null>(null);
   const [interactions, setInteractions] = useState(initialInteractions || []);
+  const [clearingHistory, setClearingHistory] = useState(false);
   const [contactMethod, setContactMethod] = useState<"whatsapp" | "email" | "phone">("whatsapp");
+
+  // Chat history paste
+  const [chatHistoryInput, setChatHistoryInput] = useState("");
+  const [chatHistorySaving, setChatHistorySaving] = useState(false);
+  const [chatHistoryResult, setChatHistoryResult] = useState<{
+    added: number;
+    total: number;
+    already: number;
+  } | null>(null);
 
   const co = company || lead?.larkspur_companies || {};
   const c = contact || lead?.larkspur_contacts || {};
@@ -63,6 +89,95 @@ export function LeadDetailClient({
     }
   };
 
+  const saveChatHistory = async () => {
+    if (!chatHistoryInput.trim()) return;
+    setChatHistorySaving(true);
+    setChatHistoryResult(null);
+    setMessageError(null);
+
+    try {
+      const res = await fetch("/api/log-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lead_id: lead.id,
+          chat_history: chatHistoryInput.trim(),
+          stage: "replied",
+          outreach_method: contactMethod,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to log chat history");
+      }
+
+      const data = await res.json();
+      setChatHistoryResult({
+        added: data.added ?? 0,
+        total: data.total_parsed ?? 0,
+        already: data.already_recorded ?? 0,
+      });
+
+      // Refresh interactions from DB
+      const { data: intData } = await supabase
+        .from("larkspur_interactions")
+        .select("*")
+        .eq("lead_id", lead.id)
+        .order("replied_at", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (intData) setInteractions(intData);
+      setChatHistoryInput("");
+    } catch (err: any) {
+      setMessageError(err.message || "Something went wrong");
+    } finally {
+      setChatHistorySaving(false);
+    }
+  };
+
+  const handleClearHistory = async (scope: "lead" | "all") => {
+    const confirmation =
+      scope === "lead"
+        ? "Clear all conversation history for this lead? This cannot be undone."
+        : "Clear ALL conversation history? This will remove every interaction in your account and cannot be undone.";
+
+    if (!window.confirm(confirmation)) return;
+
+    setClearingHistory(true);
+    setMessageError(null);
+
+    try {
+      const result =
+        scope === "lead"
+          ? await supabase
+              .from("larkspur_interactions")
+              .delete()
+              .eq("lead_id", lead.id)
+          : await supabase
+              .from("larkspur_interactions")
+              .delete()
+              .not("id", "is", null);
+
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
+
+      // This page displays only this lead's interactions.
+      setInteractions([]);
+      router.refresh();
+      alert(
+        scope === "lead"
+          ? "This lead's conversation history has been cleared."
+          : "All conversation history has been cleared."
+      );
+    } catch (err: any) {
+      setMessageError(err.message || "Could not clear conversation history.");
+    } finally {
+      setClearingHistory(false);
+    }
+  };
+
   const disapprove = async () => {
     if (!confirm("Disapprove this lead? It will be removed from your active pipeline.")) return;
 
@@ -79,6 +194,25 @@ export function LeadDetailClient({
     router.refresh();
   };
 
+  // You = blue/right. Client = white/left.
+  const isFromMe = (int: any) => {
+    const t = (int.type || "").toLowerCase();
+    return t === "whatsapp_sent" || t.includes("sent");
+  };
+
+  // Prefer real message body. Never show the old wrapper text.
+  const getBubbleText = (int: any) => {
+    const raw = (int.reply_content || "").trim();
+    if (raw && !/^whatsapp (message sent|reply received)/i.test(raw)) {
+      return raw;
+    }
+    const fallback = (int.message_content || "")
+      .replace(/^WhatsApp message sent to .+?:\s*/i, "")
+      .replace(/^WhatsApp reply received from .+?:\s*/i, "")
+      .trim();
+    return fallback || "—";
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-8">
       {/* Header */}
@@ -87,7 +221,7 @@ export function LeadDetailClient({
           <h1 className="text-3xl font-bold text-gray-900">{co.name || "Lead"}</h1>
           <p className="text-gray-600 mt-1">Lead details</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Link href="/leads" className="text-blue-600 hover:text-blue-800 font-medium">
             ← Back to Leads
           </Link>
@@ -106,7 +240,7 @@ export function LeadDetailClient({
         </div>
       </div>
 
-      {/* Company + Contact card */}
+      {/* Company + Contact */}
       <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
         <div className="p-6 border-b">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -127,7 +261,7 @@ export function LeadDetailClient({
               <p className="text-lg font-medium text-gray-900">{lead.stage}</p>
             </div>
 
-            {/* Green WhatsApp number */}
+            {/* Green WhatsApp */}
             <div>
               <p className="text-gray-500 mb-1">Phone (WhatsApp)</p>
               {co.phone || c.phone ? (
@@ -168,7 +302,6 @@ export function LeadDetailClient({
           </div>
         </div>
 
-        {/* Contact person */}
         {(c.name || c.role) && (
           <div className="p-6 border-b">
             <h2 className="text-lg font-semibold mb-3">Contact</h2>
@@ -196,38 +329,120 @@ export function LeadDetailClient({
             </div>
           </div>
         )}
+      </div>
 
-        {/* Conversation History */}
-        <div className="p-6">
-          <h2 className="text-lg font-semibold mb-4">Conversation History</h2>
+      {/* ========== CONVERSATION HISTORY ========== */}
+      <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+        <div className="p-6 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold mb-1">Conversation History</h2>
+            <p className="text-sm text-gray-500">
+              Your messages (Mishael) appear on the right in blue. Client messages on the left in white.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => handleClearHistory("lead")}
+              disabled={clearingHistory || interactions.length === 0}
+              className="px-3 py-2 bg-amber-50 text-amber-800 border border-amber-200 rounded hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+            >
+              {clearingHistory ? "Clearing…" : "Clear This Lead"}
+            </button>
+            <button
+              onClick={() => handleClearHistory("all")}
+              disabled={clearingHistory}
+              className="px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+            >
+              {clearingHistory ? "Clearing…" : "Clear All History"}
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 min-h-[200px] max-h-[520px] overflow-y-auto bg-gray-50 space-y-3">
           {interactions.length === 0 ? (
-            <p className="text-gray-500">No interactions yet</p>
+            <p className="text-gray-500 text-center py-8">
+              No messages yet. Paste a full WhatsApp chat below to import.
+            </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b">
-                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Message</th>
-                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">Type</th>
-                    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase">When</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {interactions.map((int: any) => (
-                    <tr key={int.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        {int.message_content || int.reply_content || "—"}
-                      </td>
-                      <td className="px-4 py-3 text-gray-500">{int.type}</td>
-                      <td className="px-4 py-3 text-gray-500">
-                        {int.created_at
-                          ? new Date(int.created_at).toLocaleString()
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            interactions.map((int: any) => {
+              const mine = isFromMe(int);
+              const text = getBubbleText(int);
+              const time = int.replied_at || int.created_at;
+
+              // Skip completely empty / pure wrapper rows
+              if (!text || text === "—" || /^whatsapp (message sent|reply received)/i.test(text)) {
+                return null;
+              }
+
+              return (
+                <div
+                  key={int.id || `${int.type}-${time}-${text.slice(0, 24)}`}
+                  className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[75%] rounded-2xl px-4 py-2 shadow-sm ${
+                      mine
+                        ? "bg-blue-600 text-white rounded-br-md"
+                        : "bg-white text-gray-900 border border-gray-200 rounded-bl-md"
+                    }`}
+                  >
+                    <p className="text-sm whitespace-pre-wrap">{text}</p>
+                    {time && (
+                      <p
+                        className={`text-[10px] mt-1 ${
+                          mine ? "text-blue-100" : "text-gray-400"
+                        }`}
+                      >
+                        {formatTime(time)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Paste full chat */}
+        <div className="p-6 border-t bg-white">
+          <h3 className="text-sm font-semibold text-gray-900 mb-2">
+            Paste full WhatsApp chat
+          </h3>
+          <p className="text-xs text-gray-500 mb-3">
+            Copy the conversation from WhatsApp (with timestamps) and paste it here.
+            Messages from <strong>Mishael</strong> become blue (you). Everything else becomes white (client).
+            Already-saved messages are skipped.
+          </p>
+
+          <textarea
+            value={chatHistoryInput}
+            onChange={(e) => setChatHistoryInput(e.target.value)}
+            rows={7}
+            placeholder={`Example:\n[09/11/2026, 12:39:32] Mishael: Goodday! I'm Mishael from Larkspur...\n[09/11/2026, 12:40:46] ~International School of Management Lagos: Thank you Mishael\n[09/11/2026, 12:41:48] Mishael: Alright thank you for your time.`}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+          />
+
+          <div className="mt-3 flex items-center gap-3 flex-wrap">
+            <button
+              onClick={saveChatHistory}
+              disabled={chatHistorySaving || !chatHistoryInput.trim()}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
+            >
+              {chatHistorySaving ? "Importing…" : "Import Chat History"}
+            </button>
+
+            {chatHistoryResult && (
+              <span className="text-sm text-gray-600">
+                Parsed {chatHistoryResult.total} · Added {chatHistoryResult.added} · Already had{" "}
+                {chatHistoryResult.already}
+              </span>
+            )}
+          </div>
+
+          {messageError && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-100 rounded text-red-700 text-sm">
+              {messageError}
             </div>
           )}
         </div>
@@ -237,14 +452,8 @@ export function LeadDetailClient({
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold mb-2">Generate WhatsApp Message</h2>
         <p className="text-sm text-gray-600 mb-4">
-          Generate a personalized outreach message with Groq, then click the green number above to open WhatsApp with it pre-filled.
+          Generate a personalized message, then click the green number above to open WhatsApp with it pre-filled.
         </p>
-
-        {messageError && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded text-red-700 text-sm">
-            {messageError}
-          </div>
-        )}
 
         <div className="flex flex-wrap gap-3 mb-4">
           <button
@@ -286,5 +495,3 @@ export function LeadDetailClient({
     </div>
   );
 }
-
-//triggering a redeployment here
