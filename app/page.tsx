@@ -12,7 +12,6 @@ export default async function Dashboard() {
     redirect("/login");
   }
 
-  // Fetch dashboard stats
   const { count: totalLeads } = await supabase
     .from("larkspur_leads")
     .select("*", { count: "exact", head: true });
@@ -35,7 +34,6 @@ export default async function Dashboard() {
   const replyRate = totalLeads ? Math.round((repliedLeads! / totalLeads) * 100) : 0;
   const meetingRate = repliedLeads ? Math.round((meetingLeads! / repliedLeads!) * 100) : 0;
 
-  // Messages sent today (all channels)
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   const { count: messagesToday } = await supabase
@@ -44,7 +42,6 @@ export default async function Dashboard() {
     .in("type", ["whatsapp_sent", "email", "call"])
     .gte("sent_at", startOfToday.toISOString());
 
-  // Messages sent this week (all channels)
   const startOfWeek = new Date();
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
   startOfWeek.setHours(0, 0, 0, 0);
@@ -54,36 +51,24 @@ export default async function Dashboard() {
     .in("type", ["whatsapp_sent", "email", "call"])
     .gte("sent_at", startOfWeek.toISOString());
 
-  // Total messages sent (all channels, all time)
   const { count: totalMessagesSent } = await supabase
     .from("larkspur_interactions")
     .select("*", { count: "exact", head: true })
     .in("type", ["whatsapp_sent", "email", "call"]);
 
-  // Replies received today (all channels)
   const { count: repliesToday } = await supabase
     .from("larkspur_interactions")
     .select("*", { count: "exact", head: true })
     .in("type", ["whatsapp_reply", "email_reply"])
     .gte("replied_at", startOfToday.toISOString());
 
-  // Fetch follow-ups due today
-  const today = new Date().toISOString().split("T")[0];
-  const { data: followUps } = await supabase
-    .from("larkspur_leads")
-    .select("*, larkspur_companies(name)")
-    .lte("next_follow_up_at", today)
-    .order("next_follow_up_at", { ascending: true })
-    .limit(10);
-
   return (
     <div className="max-w-7xl mx-auto p-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-1">Welcome back! Here's your outreach overview.</p>
+        <p className="text-gray-600 mt-1">Welcome back! Here&apos;s your outreach overview.</p>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="text-sm text-gray-600 mb-1">Total Leads</div>
@@ -119,7 +104,6 @@ export default async function Dashboard() {
         </div>
       </div>
 
-      {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Link
           href="/leads"
@@ -143,29 +127,6 @@ export default async function Dashboard() {
           <p className="text-sm text-gray-600">Configure searches and API keys</p>
         </Link>
       </div>
-
-      {/* Follow-ups Due */}
-      {followUps && followUps.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Follow-ups Due Today</h2>
-          <div className="space-y-3">
-            {followUps.map((lead: any) => (
-              <div key={lead.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                <div>
-                  <div className="font-medium text-gray-900">{lead.larkspur_companies?.name}</div>
-                  <div className="text-sm text-gray-600">Stage: {lead.stage}</div>
-                </div>
-                <Link
-                  href={`/leads/${lead.id}`}
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                >
-                  View →
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
