@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { StageSelect } from "./StageSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export default async function LeadsPage({
   const { data: allLeads } = await supabase
     .from("larkspur_leads")
     .select(
-      "*, larkspur_companies(name, industry, city), larkspur_contacts(name, role, phone)"
+      "*, larkspur_companies(name, industry, city, website), larkspur_contacts(name, role, phone)"
     )
     .neq("stage", "disqualified")
     .order("updated_at", { ascending: false });
@@ -55,16 +56,6 @@ export default async function LeadsPage({
     return true;
   });
 
-  const stageColors = {
-    prospect: "bg-gray-100 text-gray-800",
-    contacted: "bg-blue-100 text-blue-800",
-    replied: "bg-green-100 text-green-800",
-    meeting: "bg-purple-100 text-purple-800",
-    client: "bg-emerald-100 text-emerald-800",
-    disqualified: "bg-red-100 text-red-800",
-    unreachable: "bg-orange-100 text-orange-800",
-  };
-
   const now = new Date();
   const freshLeads = leads.filter((l: any) => {
     if (!l.next_follow_up_at) return true;
@@ -78,7 +69,21 @@ export default async function LeadsPage({
         .filter(Boolean)
     ),
   ].sort();
+
   const allStages = [...new Set((allLeads || []).map((l: any) => l.stage))].sort();
+
+  function formatDate(iso: string | null) {
+    if (!iso) return "—";
+    try {
+      const d = new Date(iso);
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yyyy = d.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    } catch {
+      return "—";
+    }
+  }
 
   return (
     <div className="max-w-7xl mx-auto p-8">
@@ -89,18 +94,15 @@ export default async function LeadsPage({
             {freshLeads.length} fresh leads in your pipeline
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link
-            href="/"
-            className="text-blue-600 hover:text-blue-800 font-medium"
-          >
+        <div className="flex gap-2 flex-wrap">
+          <Link href="/" className="text-blue-600 hover:text-blue-800 font-medium">
             ← Back to Dashboard
           </Link>
           <Link
             href="/follow-ups"
             className="px-4 py-2 bg-amber-100 text-amber-900 rounded hover:bg-amber-200 text-sm font-medium border border-amber-200"
           >
-            ⚠️ View Follow-ups Needed
+            ⚠ View Follow-ups Needed
           </Link>
         </div>
       </div>
@@ -109,9 +111,7 @@ export default async function LeadsPage({
       <div className="bg-white p-4 rounded-lg shadow mb-6 border">
         <form className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-700 mb-1">
-              Search
-            </label>
+            <label className="text-sm font-medium text-gray-700 mb-1">Search</label>
             <input
               name="search"
               defaultValue={params.search || ""}
@@ -120,9 +120,7 @@ export default async function LeadsPage({
             />
           </div>
           <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-700 mb-1">
-              Stage
-            </label>
+            <label className="text-sm font-medium text-gray-700 mb-1">Stage</label>
             <select
               name="stage"
               defaultValue={stageFilter}
@@ -131,15 +129,13 @@ export default async function LeadsPage({
               <option value="">All Stages</option>
               {allStages.map((s) => (
                 <option key={s} value={s}>
-                  {s}
+                  {s === "meeting" ? "met" : s}
                 </option>
               ))}
             </select>
           </div>
           <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-700 mb-1">
-              Industry
-            </label>
+            <label className="text-sm font-medium text-gray-700 mb-1">Industry</label>
             <select
               name="industry"
               defaultValue={industryFilter}
@@ -153,7 +149,7 @@ export default async function LeadsPage({
               ))}
             </select>
           </div>
-          <div className="flex items-end">
+          <div className="flex items-end gap-2">
             <button
               type="submit"
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
@@ -162,7 +158,7 @@ export default async function LeadsPage({
             </button>
             <Link
               href="/leads"
-              className="ml-2 px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 font-medium"
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 font-medium"
             >
               Clear
             </Link>
@@ -170,7 +166,7 @@ export default async function LeadsPage({
         </form>
       </div>
 
-      {(!freshLeads || freshLeads.length === 0) ? (
+      {!freshLeads || freshLeads.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <p className="text-gray-600 mb-4">No fresh leads match your filters</p>
           <Link
@@ -181,94 +177,90 @@ export default async function LeadsPage({
           </Link>
         </div>
       ) : (
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Company
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contact
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Industry
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Website
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Stage
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Last Contacted
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {freshLeads.map((lead: any) => (
-                <tr key={lead.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {lead.larkspur_companies?.name}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {lead.larkspur_companies?.city}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {lead.larkspur_contacts?.name || "—"}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {lead.larkspur_contacts?.role || "—"}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {lead.larkspur_companies?.industry || "—"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {lead.larkspur_companies?.website ? (
-                      <a
-                        href={lead.larkspur_companies.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline"
-                      >
-                        {lead.larkspur_companies.website}
-                      </a>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        stageColors[lead.stage as keyof typeof stageColors]
-                      }`}
-                    >
-                      {lead.stage}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {lead.last_contacted_at
-                      ? new Date(lead.last_contacted_at).toLocaleDateString()
-                      : "—"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <Link
-                      href={`/leads/${lead.id}`}
-                      className="text-blue-600 hover:text-blue-900"
-                    >
-                      View
-                    </Link>
-                  </td>
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Company
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Contact
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Industry
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Website
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Stage
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Last Contacted
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {freshLeads.map((lead: any) => (
+                  <tr key={lead.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {lead.larkspur_companies?.name}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {lead.larkspur_companies?.city}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {lead.larkspur_contacts?.name || "—"}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {lead.larkspur_contacts?.role || "—"}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {lead.larkspur_companies?.industry || "—"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {lead.larkspur_companies?.website ? (
+                        <a
+                          href={lead.larkspur_companies.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          {lead.larkspur_companies.website}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <StageSelect leadId={lead.id} currentStage={lead.stage} />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(lead.last_contacted_at)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <Link
+                        href={`/leads/${lead.id}`}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   );
