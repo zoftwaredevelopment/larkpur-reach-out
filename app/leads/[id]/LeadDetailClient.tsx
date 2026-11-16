@@ -274,7 +274,6 @@ export function LeadDetailClient({
       const payload: any = {
         lead_id: lead.id,
         chat_history: chatHistoryInput.trim(),
-        stage: "replied",
         outreach_method: historyMode === "email" ? "email" : "whatsapp",
       };
 
@@ -310,6 +309,7 @@ export function LeadDetailClient({
 
       if (intData) setInteractions(intData);
       setChatHistoryInput("");
+      router.refresh();
     } catch (err: any) {
       setMessageError(err.message || "Something went wrong");
     } finally {
@@ -345,9 +345,16 @@ export function LeadDetailClient({
     router.refresh();
   };
 
+  // Blue = you. White = client.
   const isFromMe = (int: any) => {
+    if (int.notes === "email_client_paste") return false;
+    if (int.notes === "follow_up_confirmed") return false;
     const t = (int.type || "").toLowerCase();
-    return t === "whatsapp_sent" || t === "email" || t.includes("sent");
+    if (t === "whatsapp_sent" || t === "email") return true;
+    if (t === "whatsapp_reply") return false;
+    if (t === "note") return false;
+    if (t.includes("sent")) return true;
+    return false;
   };
 
   const getBubbleText = (int: any) => {
@@ -358,6 +365,15 @@ export function LeadDetailClient({
       .replace(/^WhatsApp reply received from .+?:\s*/i, "")
       .trim();
     return fallback || "—";
+  };
+
+  const shouldShowBubble = (int: any) => {
+    if (int.notes === "follow_up_confirmed") return false;
+    const text = getBubbleText(int);
+    if (!text || text === "—") return false;
+    if (/^whatsapp (message sent|reply received)/i.test(text)) return false;
+    if (text === "Follow-up sent") return false;
+    return true;
   };
 
   const displaySalary = editing ? form.monthly_salary : company?.monthly_salary;
@@ -719,7 +735,6 @@ export function LeadDetailClient({
         </div>
       </div>
 
-      {/* Conversation */}
       <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
         <div className="p-6 border-b flex items-center justify-between">
           <div>
@@ -734,18 +749,16 @@ export function LeadDetailClient({
         </div>
 
         <div className="p-6 min-h-[200px] max-h-[520px] overflow-y-auto bg-gray-50 space-y-3">
-          {interactions.length === 0 ? (
+          {interactions.filter(shouldShowBubble).length === 0 ? (
             <p className="text-gray-500 text-center py-8">
               No messages yet. Import WhatsApp or email below.
             </p>
           ) : (
             interactions.map((int: any) => {
+              if (!shouldShowBubble(int)) return null;
               const mine = isFromMe(int);
               const text = getBubbleText(int);
               const time = int.replied_at || int.created_at;
-              if (!text || text === "—" || /^whatsapp (message sent|reply received)/i.test(text)) {
-                return null;
-              }
               return (
                 <div
                   key={int.id || `${int.type}-${time}-${text.slice(0, 24)}`}
@@ -831,10 +844,10 @@ export function LeadDetailClient({
             </h3>
             <p className="text-xs text-gray-500 mb-3">
               {historyMode === "whatsapp"
-                ? "Timestamps + names are parsed. Mishael → blue, everyone else → white."
+                ? "Only client (white) messages move stage to replied. Own-only → contacted."
                 : emailSpeaker === "larkspur"
-                  ? "Saved as your message (blue, right)."
-                  : "Saved as the client’s message (white, left)."}
+                  ? "Saved as your message (blue). Stage → contacted if no client yet."
+                  : "Saved as client message (white). Stage → replied."}
             </p>
             <textarea
               value={chatHistoryInput}

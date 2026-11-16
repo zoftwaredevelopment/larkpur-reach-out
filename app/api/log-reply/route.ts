@@ -47,10 +47,8 @@ function parseChatHistory(chat: string): ParsedMessage[] {
       }
     }
 
-    if (!matched) {
-      if (current) {
-        current.content += "\n" + line;
-      }
+    if (!matched && current) {
+      current.content += "\n" + line;
     }
   }
   flush();
@@ -97,6 +95,14 @@ function isFromOwner(sender: string | null): boolean {
   return s.includes("mishael") || s.includes("mishaelt") || s === "me" || s === "you";
 }
 
+/** White / client messages — valid enum only */
+function isClientInteraction(type: string, notes?: string | null): boolean {
+  const t = (type || "").toLowerCase();
+  if (t === "whatsapp_reply") return true;
+  if (notes === "email_client_paste") return true;
+  return false;
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const {
@@ -111,7 +117,6 @@ export async function POST(request: Request) {
     lead_id,
     reply_content,
     chat_history,
-    stage = "replied",
     outreach_method = "whatsapp",
     email_mode,
     speaker,
@@ -119,7 +124,6 @@ export async function POST(request: Request) {
     lead_id: string;
     reply_content?: string;
     chat_history?: string;
-    stage?: "replied" | "meeting" | "disqualified" | "unreachable";
     outreach_method?: "whatsapp" | "email" | "phone";
     email_mode?: boolean;
     speaker?: "larkspur" | "client";
@@ -132,13 +136,13 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
   const now = new Date().toISOString();
 
-  // --- Single message mode ---
+  // --- Single inbound reply ---
   if (reply_content && !chat_history) {
     const interactionType =
       outreach_method === "whatsapp"
         ? "whatsapp_reply"
         : outreach_method === "email"
-          ? "email_reply"
+          ? "note"
           : "call";
 
     await admin.from("larkspur_interactions").insert({
@@ -146,21 +150,22 @@ export async function POST(request: Request) {
       type: interactionType,
       reply_content: reply_content.trim(),
       replied_at: now,
+      notes: outreach_method === "email" ? "email_client_paste" : null,
     });
 
     await admin
       .from("larkspur_leads")
       .update({
-        stage,
+        stage: "replied",
         updated_at: now,
-        ...(stage === "replied" ? { last_contacted_at: now } : {}),
+        last_contacted_at: now,
       })
       .eq("id", lead_id);
 
-    return NextResponse.json({ success: true, stage, added: 1 });
+    return NextResponse.json({ success: true, stage: "replied", added: 1 });
   }
 
-  // --- Email mode: explicit Larkspur vs Client, no WhatsApp parsing ---
+  // --- Email mode (manual Larkspur / Client) ---
   if (chat_history && email_mode) {
     const who = speaker === "larkspur" ? "larkspur" : "client";
     const content = String(chat_history).trim();
@@ -170,19 +175,19 @@ export async function POST(request: Request) {
 
     const { data: existing } = await admin
       .from("larkspur_interactions")
-      .select("reply_content")
+      .select("reply_content, message_content, type, notes")
       .eq("lead_id", lead_id);
 
     const existingContents = new Set(
       (existing ?? [])
-        .map((i: any) => (i.reply_content || "").trim().toLowerCase())
+        .map((i: any) => (i.reply_content || i.message_content || "").trim().toLowerCase())
         .filter(Boolean)
     );
 
     if (existingContents.has(content.toLowerCase())) {
       return NextResponse.json({
         success: true,
-        stage,
+        stage: null,
         added: 0,
         total_parsed: 1,
         already_recorded: 1,
@@ -190,24 +195,30 @@ export async function POST(request: Request) {
     }
 
     const isMine = who === "larkspur";
+    // enum: email = outbound, note + email_client_paste = inbound client email
+    const type = isMine ? "email" : "note";
+    const notes = isMine ? "email_paste" : "email_client_paste";
+
     const { error } = await admin.from("larkspur_interactions").insert({
       lead_id,
-      type: isMine ? "email" : "email_reply",
+      type,
       reply_content: content,
       replied_at: now,
       message_content: null,
-      notes: "email_paste",
+      notes,
     });
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    const stage = isMine ? "contacted" : "replied";
 
     await admin
       .from("larkspur_leads")
       .update({
         stage,
         updated_at: now,
-        ...(stage === "replied" ? { last_contacted_at: now } : {}),
+        last_contacted_at: now,
       })
       .eq("id", lead_id);
 
@@ -220,7 +231,7 @@ export async function POST(request: Request) {
     });
   }
 
-  // --- WhatsApp full chat history mode ---
+  // --- WhatsApp full chat history ---
   if (chat_history) {
     const parsed = parseChatHistory(chat_history);
     if (parsed.length === 0) {
@@ -232,7 +243,7 @@ export async function POST(request: Request) {
 
     const { data: existing } = await admin
       .from("larkspur_interactions")
-      .select("reply_content, message_content, type")
+      .select("reply_content, message_content, type, notes")
       .eq("lead_id", lead_id);
 
     const existingContents = new Set(
@@ -255,7 +266,8 @@ export async function POST(request: Request) {
         type: mine ? "whatsapp_sent" : "whatsapp_reply",
         reply_content: m.content.trim(),
         replied_at: m.timestamp || now,
-        message_content: null,
+        message_content: null as string | null,
+        notes: null as string | null,
       };
     });
 
@@ -268,21 +280,34 @@ export async function POST(request: Request) {
       added = insertRows.length;
     }
 
-    await admin
-      .from("larkspur_leads")
-      .update({
-        stage,
-        updated_at: now,
-        ...(stage === "replied" ? { last_contacted_at: now } : {}),
-      })
-      .eq("id", lead_id);
+    const hasClientInPaste = insertRows.some((r) =>
+      isClientInteraction(r.type, r.notes)
+    );
+    const hasClientExisting = (existing ?? []).some((i: any) =>
+      isClientInteraction(i.type || "", i.notes)
+    );
+    const hasClientMessage = hasClientInPaste || hasClientExisting;
+
+    const stageUpdate: Record<string, unknown> = {
+      updated_at: now,
+      last_contacted_at: now,
+    };
+
+    if (hasClientMessage) {
+      stageUpdate.stage = "replied";
+    } else if (added > 0) {
+      stageUpdate.stage = "contacted";
+    }
+
+    await admin.from("larkspur_leads").update(stageUpdate).eq("id", lead_id);
 
     return NextResponse.json({
       success: true,
-      stage,
+      stage: (stageUpdate.stage as string) || null,
       added,
       total_parsed: parsed.length,
       already_recorded: parsed.length - added,
+      has_client_message: hasClientMessage,
     });
   }
 

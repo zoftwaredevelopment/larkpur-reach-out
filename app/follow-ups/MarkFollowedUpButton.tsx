@@ -10,24 +10,27 @@ export function MarkFollowedUpButton({ leadId }: { leadId: string }) {
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
-    if (!confirm("Confirm you sent this follow-up? It will leave the list and count on the dashboard.")) {
+    if (
+      !confirm(
+        "Confirm you sent this follow-up? It will leave the list and count on the dashboard."
+      )
+    ) {
       return;
     }
     setLoading(true);
     try {
       const now = new Date().toISOString();
 
-      // 1. Log the follow-up so dashboard can count it
       const { error: intErr } = await supabase.from("larkspur_interactions").insert({
         lead_id: leadId,
-        type: "whatsapp_sent",
-        message_content: "Follow-up sent",
+        type: "note",
+        reply_content: null,
+        message_content: null,
         sent_at: now,
         notes: "follow_up_confirmed",
       });
       if (intErr) throw new Error(intErr.message);
 
-      // 2. Clear from follow-ups list
       const { error: leadErr } = await supabase
         .from("larkspur_leads")
         .update({
