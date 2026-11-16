@@ -36,15 +36,17 @@ export default async function Dashboard() {
 
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
+
+  const startOfWeek = new Date();
+  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+
   const { count: messagesToday } = await supabase
     .from("larkspur_interactions")
     .select("*", { count: "exact", head: true })
     .in("type", ["whatsapp_sent", "email", "call"])
     .gte("sent_at", startOfToday.toISOString());
 
-  const startOfWeek = new Date();
-  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-  startOfWeek.setHours(0, 0, 0, 0);
   const { count: messagesThisWeek } = await supabase
     .from("larkspur_interactions")
     .select("*", { count: "exact", head: true })
@@ -61,6 +63,24 @@ export default async function Dashboard() {
     .select("*", { count: "exact", head: true })
     .in("type", ["whatsapp_reply", "email_reply"])
     .gte("replied_at", startOfToday.toISOString());
+
+  // Follow-ups confirmed via "Mark followed up"
+  const { count: followUpsToday } = await supabase
+    .from("larkspur_interactions")
+    .select("*", { count: "exact", head: true })
+    .eq("notes", "follow_up_confirmed")
+    .gte("sent_at", startOfToday.toISOString());
+
+  const { count: followUpsThisWeek } = await supabase
+    .from("larkspur_interactions")
+    .select("*", { count: "exact", head: true })
+    .eq("notes", "follow_up_confirmed")
+    .gte("sent_at", startOfWeek.toISOString());
+
+  const { count: followUpsTotal } = await supabase
+    .from("larkspur_interactions")
+    .select("*", { count: "exact", head: true })
+    .eq("notes", "follow_up_confirmed");
 
   return (
     <div className="max-w-7xl mx-auto p-8">
@@ -102,6 +122,18 @@ export default async function Dashboard() {
           <div className="text-sm text-gray-600 mb-1">Replies Today</div>
           <div className="text-3xl font-bold text-emerald-600">{repliesToday || 0}</div>
         </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-sm text-gray-600 mb-1">Follow-ups Sent Today</div>
+          <div className="text-3xl font-bold text-amber-600">{followUpsToday || 0}</div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-sm text-gray-600 mb-1">Follow-ups Sent This Week</div>
+          <div className="text-3xl font-bold text-orange-600">{followUpsThisWeek || 0}</div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-sm text-gray-600 mb-1">Total Follow-ups Sent</div>
+          <div className="text-3xl font-bold text-rose-600">{followUpsTotal || 0}</div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -129,4 +161,4 @@ export default async function Dashboard() {
       </div>
     </div>
   );
-}
+} 

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { MarkFollowedUpButton } from "./MarkFollowedUpButton";
 
 export const dynamic = "force-dynamic";
 
@@ -59,10 +60,7 @@ export default async function FollowUpsPage() {
             {rows.length} lead{rows.length === 1 ? "" : "s"} due for follow-up
           </p>
         </div>
-        <Link
-          href="/leads"
-          className="text-blue-600 hover:text-blue-800 font-medium"
-        >
+        <Link href="/leads" className="text-blue-600 hover:text-blue-800 font-medium">
           ← Back to Leads
         </Link>
       </div>
@@ -77,27 +75,15 @@ export default async function FollowUpsPage() {
       ) : (
         <div className="bg-white rounded-lg shadow">
           <div className="overflow-x-auto">
-            <table className="min-w-[800px] w-full text-left">
+            <table className="min-w-[900px] w-full text-left">
               <thead>
                 <tr className="bg-gray-50 border-b">
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">
-                    Company
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">
-                    Contact
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">
-                    Industry
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">
-                    City
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">
-                    Stage
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">
-                    Due
-                  </th>
+                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Company</th>
+                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Contact</th>
+                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Industry</th>
+                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">City</th>
+                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Stage</th>
+                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">Due</th>
                   <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase text-right">
                     Actions
                   </th>
@@ -141,12 +127,15 @@ export default async function FollowUpsPage() {
                       {formatDate(lead.next_follow_up_at)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <Link
-                        href={`/leads/${lead.id}`}
-                        className="inline-flex px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700"
-                      >
-                        Open lead →
-                      </Link>
+                      <div className="flex items-center justify-end gap-2">
+                        <Link
+                          href={`/leads/${lead.id}`}
+                          className="inline-flex px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700"
+                        >
+                          Open lead
+                        </Link>
+                        <MarkFollowedUpButton leadId={lead.id} />
+                      </div>
                     </td>
                   </tr>
                 ))}
