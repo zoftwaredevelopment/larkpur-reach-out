@@ -95,6 +95,8 @@ export function LeadDetailClient({
   const [messageError, setMessageError] = useState<string | null>(null);
   const [contactMethod, setContactMethod] = useState<"whatsapp" | "email" | "phone">("whatsapp");
 
+  const [historyMode, setHistoryMode] = useState<"whatsapp" | "email">("whatsapp");
+  const [emailSpeaker, setEmailSpeaker] = useState<"larkspur" | "client">("client");
   const [chatHistoryInput, setChatHistoryInput] = useState("");
   const [chatHistorySaving, setChatHistorySaving] = useState(false);
   const [chatHistoryResult, setChatHistoryResult] = useState<{
@@ -150,7 +152,6 @@ export function LeadDetailClient({
         ? parseInt(String(form.years_established), 10)
         : null;
 
-      // Company — do NOT send deal_value (generated column in DB)
       if (company?.id) {
         const { error: coErr } = await supabase
           .from("larkspur_companies")
@@ -175,7 +176,6 @@ export function LeadDetailClient({
         }));
       }
 
-      // Contact
       if (contact?.id) {
         const { error: cErr } = await supabase
           .from("larkspur_contacts")
@@ -201,7 +201,6 @@ export function LeadDetailClient({
         }));
       }
 
-      // Lead
       const lastContacted = form.last_contacted_at
         ? new Date(form.last_contacted_at).toISOString()
         : null;
@@ -270,33 +269,45 @@ export function LeadDetailClient({
     setChatHistorySaving(true);
     setChatHistoryResult(null);
     setMessageError(null);
+
     try {
+      const payload: any = {
+        lead_id: lead.id,
+        chat_history: chatHistoryInput.trim(),
+        stage: "replied",
+        outreach_method: historyMode === "email" ? "email" : "whatsapp",
+      };
+
+      if (historyMode === "email") {
+        payload.email_mode = true;
+        payload.speaker = emailSpeaker;
+      }
+
       const res = await fetch("/api/log-reply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lead_id: lead.id,
-          chat_history: chatHistoryInput.trim(),
-          stage: "replied",
-          outreach_method: contactMethod,
-        }),
+        body: JSON.stringify(payload),
       });
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to log chat history");
+        throw new Error(err.error || "Failed to log history");
       }
+
       const data = await res.json();
       setChatHistoryResult({
         added: data.added ?? 0,
         total: data.total_parsed ?? 0,
         already: data.already_recorded ?? 0,
       });
+
       const { data: intData } = await supabase
         .from("larkspur_interactions")
         .select("*")
         .eq("lead_id", lead.id)
         .order("replied_at", { ascending: true })
         .order("created_at", { ascending: true });
+
       if (intData) setInteractions(intData);
       setChatHistoryInput("");
     } catch (err: any) {
@@ -336,7 +347,7 @@ export function LeadDetailClient({
 
   const isFromMe = (int: any) => {
     const t = (int.type || "").toLowerCase();
-    return t === "whatsapp_sent" || t.includes("sent");
+    return t === "whatsapp_sent" || t === "email" || t.includes("sent");
   };
 
   const getBubbleText = (int: any) => {
@@ -363,7 +374,12 @@ export function LeadDetailClient({
           <Link href="/leads" className="text-blue-600 hover:text-blue-800 font-medium">
             ← Back to Leads
           </Link>
-         
+          <Link
+            href="/follow-ups"
+            className="px-4 py-2 bg-amber-100 text-amber-900 rounded hover:bg-amber-200 text-sm font-medium border border-amber-200"
+          >
+            ⚠ Follow-ups
+          </Link>
           {!editing ? (
             <button
               onClick={startEditing}
@@ -634,13 +650,13 @@ export function LeadDetailClient({
                   {["prospect", "contacted", "replied", "meeting", "client", "disqualified", "unreachable"].map(
                     (s) => (
                       <option key={s} value={s}>
-                        {s}
+                        {s === "meeting" ? "met" : s}
                       </option>
-                    ),
+                    )
                   )}
                 </select>
               ) : (
-                <p className="font-medium">{lead.stage}</p>
+                <p className="font-medium">{lead.stage === "meeting" ? "met" : lead.stage}</p>
               )}
             </div>
             <div>
@@ -703,12 +719,13 @@ export function LeadDetailClient({
         </div>
       </div>
 
+      {/* Conversation */}
       <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
         <div className="p-6 border-b flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold mb-1">Conversation History</h2>
             <p className="text-sm text-gray-500">
-              Your messages (Mishael) on the right in blue. Client on the left in white.
+              You (Larkspur / Mishael) on the right in blue. Client on the left in white.
             </p>
           </div>
           <button onClick={clearHistory} className="text-xs text-red-600 hover:underline">
@@ -719,7 +736,7 @@ export function LeadDetailClient({
         <div className="p-6 min-h-[200px] max-h-[520px] overflow-y-auto bg-gray-50 space-y-3">
           {interactions.length === 0 ? (
             <p className="text-gray-500 text-center py-8">
-              No messages yet. Paste a full WhatsApp chat below to import.
+              No messages yet. Import WhatsApp or email below.
             </p>
           ) : (
             interactions.map((int: any) => {
@@ -754,25 +771,91 @@ export function LeadDetailClient({
           )}
         </div>
 
-        <div className="p-6 border-t bg-white">
-          <h3 className="text-sm font-semibold text-gray-900 mb-2">Paste full WhatsApp chat</h3>
-          <p className="text-xs text-gray-500 mb-3">
-            Messages from <strong>Mishael</strong> → blue (you). Everyone else → white (client).
-          </p>
-          <textarea
-            value={chatHistoryInput}
-            onChange={(e) => setChatHistoryInput(e.target.value)}
-            rows={7}
-            placeholder={`[09/11/2026, 12:39:32] Mishael: Goodday!...\n[09/11/2026, 12:40:46] ~Client Name: Thank you...`}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-          />
-          <div className="mt-3 flex items-center gap-3 flex-wrap">
+        <div className="p-6 border-t bg-white space-y-4">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setHistoryMode("whatsapp")}
+              className={`px-3 py-1.5 rounded text-sm font-medium border ${
+                historyMode === "whatsapp"
+                  ? "bg-green-600 text-white border-green-600"
+                  : "bg-white text-gray-700 border-gray-300"
+              }`}
+            >
+              WhatsApp mode
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistoryMode("email")}
+              className={`px-3 py-1.5 rounded text-sm font-medium border ${
+                historyMode === "email"
+                  ? "bg-purple-600 text-white border-purple-600"
+                  : "bg-white text-gray-700 border-gray-300"
+              }`}
+            >
+              Email mode
+            </button>
+          </div>
+
+          {historyMode === "email" && (
+            <div className="flex gap-2 items-center flex-wrap">
+              <span className="text-xs text-gray-500">This paste is from:</span>
+              <button
+                type="button"
+                onClick={() => setEmailSpeaker("larkspur")}
+                className={`px-3 py-1.5 rounded text-sm font-medium border ${
+                  emailSpeaker === "larkspur"
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-700 border-gray-300"
+                }`}
+              >
+                Larkspur
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmailSpeaker("client")}
+                className={`px-3 py-1.5 rounded text-sm font-medium border ${
+                  emailSpeaker === "client"
+                    ? "bg-gray-800 text-white border-gray-800"
+                    : "bg-white text-gray-700 border-gray-300"
+                }`}
+              >
+                Client
+              </button>
+            </div>
+          )}
+
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">
+              {historyMode === "whatsapp" ? "Paste full WhatsApp chat" : "Paste email body"}
+            </h3>
+            <p className="text-xs text-gray-500 mb-3">
+              {historyMode === "whatsapp"
+                ? "Timestamps + names are parsed. Mishael → blue, everyone else → white."
+                : emailSpeaker === "larkspur"
+                  ? "Saved as your message (blue, right)."
+                  : "Saved as the client’s message (white, left)."}
+            </p>
+            <textarea
+              value={chatHistoryInput}
+              onChange={(e) => setChatHistoryInput(e.target.value)}
+              rows={7}
+              placeholder={
+                historyMode === "whatsapp"
+                  ? `[09/11/2026, 12:39:32] Mishael: ...\n[09/11/2026, 12:40:46] Client: ...`
+                  : `Paste the email body (Apple Mail selection is fine).`
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+            />
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap">
             <button
               onClick={saveChatHistory}
               disabled={chatHistorySaving || !chatHistoryInput.trim()}
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
             >
-              {chatHistorySaving ? "Importing…" : "Import Chat History"}
+              {chatHistorySaving ? "Importing…" : "Import into conversation"}
             </button>
             {chatHistoryResult && (
               <span className="text-sm text-gray-600">
