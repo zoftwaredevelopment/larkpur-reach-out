@@ -333,16 +333,26 @@ export function LeadDetailClient({
 
   const disapprove = async () => {
     if (!confirm("Disapprove this lead? It will be removed from your active pipeline.")) return;
-    const { error } = await supabase
-      .from("larkspur_leads")
-      .update({ stage: "disqualified", disapproved_at: new Date().toISOString() })
-      .eq("id", lead.id);
-    if (error) {
-      alert(error.message);
-      return;
+
+    try {
+      const res = await fetch("/api/disapprove-lead", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lead_id: lead.id }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Failed to disapprove lead");
+        return;
+      }
+
+      router.push("/leads");
+      router.refresh();
+    } catch (err) {
+      alert("Something went wrong");
     }
-    router.push("/leads");
-    router.refresh();
   };
 
   // Blue = you. White = client.
