@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { findPublicEmail } from "@/lib/messaging/email-finder";
 import { generateEmail } from "@/lib/messaging/groq";
-import { buildEmailPrompt } from "@/lib/messaging/prompts";
+import { buildEmailPrompt, draftNamesHiringRoles } from "@/lib/messaging/prompts";
 import type { Company, Contact } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -15,20 +15,32 @@ function parseDraft(content: string): EmailDraft | null {
   try {
     const draft = JSON.parse(content);
     if (
-      typeof draft.email === "string" && typeof draft.subject === "string" &&
-      typeof draft.body === "string" && draft.email && draft.subject && draft.body
-    ) return draft;
-  } catch { /* Ignore old or malformed cached drafts. */ }
+      typeof draft.email === "string" &&
+      typeof draft.subject === "string" &&
+      typeof draft.body === "string" &&
+      draft.email &&
+      draft.subject &&
+      draft.body
+    )
+      return draft;
+  } catch {
+    /* Ignore old or malformed cached drafts. */
+  }
   return null;
 }
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const { lead_id, refresh = false } = await request.json() as { lead_id: string; refresh?: boolean };
+    const { lead_id, refresh = false } = (await request.json()) as {
+      lead_id: string;
+      refresh?: boolean;
+    };
     if (!lead_id) return NextResponse.json({ error: "lead_id is required" }, { status: 400 });
 
     const { data: lead, error: leadError } = await supabase
@@ -51,7 +63,11 @@ export async function POST(request: Request) {
 
       if (cached?.variant === "email") {
         const draft = parseDraft(cached.content);
-        if (draft) return NextResponse.json({ draft });
+        // Only reuse cache if it already names our hiring roles (post-prompt-update drafts)
+        if (draft && draftNamesHiringRoles(draft.body)) {
+          return NextResponse.json({ draft });
+        }
+        // Stale generic draft: fall through and regenerate
       }
       if (
         cached?.variant === "email_not_found" &&
@@ -63,7 +79,8 @@ export async function POST(request: Request) {
 
     const company = lead.larkspur_companies as unknown as Company;
     const contact = lead.larkspur_contacts as unknown as Contact | null;
-    const contactEmail = typeof contact?.email === "string" ? contact.email.trim().toLowerCase() : "";
+    const contactEmail =
+      typeof contact?.email === "string" ? contact.email.trim().toLowerCase() : "";
     let recipient = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail) ? contactEmail : null;
     let sourceUrl: string | undefined;
 
@@ -77,7 +94,10 @@ export async function POST(request: Request) {
 
     if (!recipient) {
       await supabase.from("larkspur_messages").insert({
-        lead_id, stage: "initial", variant: "email_not_found", content: "No public email found",
+        lead_id,
+        stage: "initial",
+        variant: "email_not_found",
+        content: "No public email found",
       });
       return NextResponse.json({ error: "No public email found" }, { status: 404 });
     }
