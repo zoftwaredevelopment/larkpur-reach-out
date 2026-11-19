@@ -56,11 +56,11 @@ export default async function LeadsPage({
     return true;
   });
 
-  const now = new Date();
-  const freshLeads = leads.filter((l: any) => {
-    if (!l.next_follow_up_at) return true;
-    return new Date(l.next_follow_up_at) > now;
-  });
+  // Top pile = not yet outreached. Logging the first sent message moves stage to
+  // contacted and schedules next_follow_up_at, so the lead leaves this list.
+  const freshLeads = stageFilter
+    ? leads
+    : leads.filter((l: any) => (l.stage || "prospect") === "prospect");
 
   const allIndustries = [
     ...new Set(
@@ -91,80 +91,80 @@ export default async function LeadsPage({
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Leads</h1>
           <p className="text-gray-600 mt-1">
-            {freshLeads.length} fresh leads in your pipeline
+            {stageFilter
+              ? `${leads.length} lead${leads.length === 1 ? "" : "s"} (filtered)`
+              : `${freshLeads.length} fresh lead${freshLeads.length === 1 ? "" : "s"} (prospects) in your pipeline`}
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Link href="/" className="text-blue-600 hover:text-blue-800 font-medium">
-            ← Back to Dashboard
-          </Link>
+        <div className="flex gap-3 flex-wrap">
           <Link
             href="/follow-ups"
             className="px-4 py-2 bg-amber-100 text-amber-900 rounded hover:bg-amber-200 text-sm font-medium border border-amber-200"
           >
-            ⚠ View Follow-ups Needed
+            ⚠ Follow-ups
+          </Link>
+          <Link href="/" className="text-blue-600 hover:text-blue-800 font-medium">
+            ← Dashboard
           </Link>
         </div>
       </div>
 
-      {/* Search & Filters */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6 border">
-        <form className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-700 mb-1">Search</label>
-            <input
-              name="search"
-              defaultValue={params.search || ""}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Company, contact, industry, city..."
-            />
-          </div>
-          <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-700 mb-1">Stage</label>
-            <select
-              name="stage"
-              defaultValue={stageFilter}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Stages</option>
-              {allStages.map((s) => (
-                <option key={s} value={s}>
-                  {s === "meeting" ? "met" : s}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-700 mb-1">Industry</label>
-            <select
-              name="industry"
-              defaultValue={industryFilter}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Industries</option>
-              {allIndustries.map((i) => (
-                <option key={i} value={i}>
-                  {i}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-end gap-2">
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-            >
-              Filter
-            </button>
-            <Link
-              href="/leads"
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 font-medium"
-            >
-              Clear
-            </Link>
-          </div>
-        </form>
-      </div>
+      <form method="get" className="bg-white rounded-lg shadow p-4 mb-6 grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Search</label>
+          <input
+            type="text"
+            name="search"
+            defaultValue={params.search || ""}
+            placeholder="Company, contact, city…"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Stage</label>
+          <select
+            name="stage"
+            defaultValue={stageFilter}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          >
+            <option value="">Fresh (prospects)</option>
+            {allStages.map((s) => (
+              <option key={s} value={s}>
+                {s === "meeting" ? "met" : s}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Industry</label>
+          <select
+            name="industry"
+            defaultValue={industryFilter}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          >
+            <option value="">All industries</option>
+            {allIndustries.map((ind) => (
+              <option key={ind as string} value={ind as string}>
+                {ind as string}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-end gap-2">
+          <button
+            type="submit"
+            className="px-4 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700"
+          >
+            Filter
+          </button>
+          <Link
+            href="/leads"
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded text-sm font-medium hover:bg-gray-200"
+          >
+            Clear
+          </Link>
+        </div>
+      </form>
 
       {!freshLeads || freshLeads.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
@@ -198,10 +198,10 @@ export default async function LeadsPage({
                     Stage
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Contacted
+                    Last contact
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+                    
                   </th>
                 </tr>
               </thead>
