@@ -7,6 +7,9 @@ const ROLES_SHORT = "sales, business development, customer service, and admin (e
 const ROLES_FULL =
   "business development, sales, customer service, and administrative roles (e.g. executive assistants)";
 
+/** Bump when prompt product rules change so email cache regenerates. */
+export const MESSAGING_PROMPT_VERSION = "2026-11-19-roles-v3";
+
 export function buildMessagePrompt(
   company: Company,
   contact: Contact | null,
@@ -37,18 +40,19 @@ Context: ${stageContext[stage]}
 ${historySection}What to say (positive framing only):
 - Larkspur helps Nigerian companies hire ${ROLES_SHORT}.
 - Unless stage is "breakup", the message body MUST include a clear phrase about sales, business development, customer service, and/or admin (EA) hiring. Vague "hiring needs" alone is NOT enough.
-- Do not list what Larkspur does not do — let the named roles imply the focus.
+- Do not list what Larkspur does not do. Let the named roles imply the focus.
 - Industry (${industry}) is tone only. Do not pitch specialist professional hiring for that industry.
 
 Example shape (do not copy verbatim; adapt names):
-"Goodday! I'm Mishael from Larkspur — we help Nigerian businesses hire sales, BD, customer service, and admin talent (like EAs). Are you open to a quick chat if ${company.name} needs any of those roles?"
+"Goodday! I'm Mishael from Larkspur. We help Nigerian businesses hire sales, BD, customer service, and admin talent (like EAs). Are you open to a quick chat if ${company.name} needs any of those roles?"
 
-Requirements:
+Style (human, not AI):
+- NEVER use em dashes (—), en dashes (–), or double hyphens (--) as punctuation. Use a period, comma, or new sentence instead.
 - Prefer under 320 characters (hard max 400). Prioritize naming the roles over filler.
 - Friendly, professional Nigerian English
 - Always say "Larkspur", NEVER "Larkspur Resourcing"
-- Introduce as "Mishael" from Larkspur in the body — no "-Mishael" sign-off
-- Greet with "Goodday!" — never "Hi Sir" or gendered salutations
+- Introduce as "Mishael" from Larkspur in the body. No "-Mishael" sign-off
+- Greet with "Goodday!". Never "Hi Sir" or gendered salutations
 - Clear CTA about those specific roles
 - No "I hope this message finds you well"
 - Do NOT invent claims about their team growth or open roles
@@ -68,8 +72,8 @@ export function buildEmailPrompt(company: Company, contact: Contact | null): str
 What to say (positive framing only):
 - Larkspur helps companies hire ${ROLES_FULL}.
 - The body MUST explicitly list those role types. "Hiring support" or "recruitment help" alone is NOT enough.
-- Do not list what Larkspur does not do — the named roles are enough.
-- Industry (${industry}) is context only — do not pitch specialist professional staffing for that industry.
+- Do not list what Larkspur does not do. The named roles are enough.
+- Industry (${industry}) is context only. Do not pitch specialist professional staffing for that industry.
 
 Requirements:
 - Subject: clear, natural, under 70 characters; may reference sales/CS/admin hiring
@@ -80,6 +84,7 @@ Requirements:
 - Do not invent growth, vacancies, or case studies
 - Company name exactly as supplied
 - Nigerian English conventions
+- NEVER use em dashes (—), en dashes (–), or double hyphens (--) as punctuation. Use periods or commas.
 
 Signature rules (strict):
 - Email app already adds signature. Do NOT add any signature block.
@@ -88,4 +93,26 @@ Signature rules (strict):
 - End after CTA with at most: "Looking forward to hearing from you."
 
 Return JSON: { "subject": "email subject", "body": "plain text email body" }`;
+}
+
+/** True if a draft body already states our role targets. */
+export function draftNamesHiringRoles(text: string): boolean {
+  const t = text.toLowerCase();
+  const hasSales = t.includes("sales");
+  const hasBd =
+    t.includes("business development") ||
+    t.includes("bd") ||
+    t.includes("biz dev");
+  const hasCs =
+    t.includes("customer service") ||
+    t.includes("customer support") ||
+    t.includes("cs ") ||
+    t.includes(" cs");
+  const hasAdmin =
+    t.includes("admin") ||
+    t.includes("executive assistant") ||
+    t.includes(" ea") ||
+    t.includes("ea)");
+  // Need at least two role families so it is not a single token coincidence
+  return [hasSales, hasBd, hasCs, hasAdmin].filter(Boolean).length >= 2;
 }

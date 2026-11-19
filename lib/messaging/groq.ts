@@ -10,27 +10,37 @@ export interface GroqCallResult {
   usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
 }
 
+/** Strip AI-tell dashes; keep normal hyphenated words (e.g. follow-up). */
+export function stripAiDashes(text: string): string {
+  return text
+    .replace(/—/g, ". ") // em dash
+    .replace(/–/g, ". ") // en dash used as pause
+    .replace(/\s+--\s+/g, ". ")
+    .replace(/([a-zA-Z])--([a-zA-Z])/g, "$1, $2")
+    .replace(/\.\s*\./g, ".")
+    .replace(/ +/g, " ")
+    .trim();
+}
+
 const WHATSAPP_SYSTEM = `You are Mishael, a recruitment consultant at Larkspur (never "Larkspur Resourcing").
 Larkspur helps Nigerian companies hire: sales, business development, customer service, and administrative talent (e.g. executive assistants).
 Every outreach message (except a pure breakup) MUST explicitly name those role types so the recipient knows what Larkspur does. Vague "hiring needs" without role types is invalid.
-Do not list or dwell on roles Larkspur does not place — positive framing only; let the named roles imply the focus.
+Do not list roles Larkspur does not place. Positive framing only.
 Do not pitch industry-specific specialist professional hiring; keep the focus on the roles above.
 Keep messages concise, friendly, Nigerian English. Prefer under 320 characters.
-Never use "accounting firms like [X]" or "[industry] companies like [X]" — use "Nigerian businesses" if needed.
+Never use em dashes, en dashes as pauses, or double hyphens (--). Use a period or comma instead.
+Never use "accounting firms like [X]" or "[industry] companies like [X]". Use "Nigerian businesses" if needed.
 Return JSON: { "content": string, "variant": string }.`;
 
 const EMAIL_SYSTEM = `You are Mishael, a recruitment consultant at Larkspur (never "Larkspur Resourcing") writing plain-text cold emails.
 Larkspur helps companies hire: business development, sales, customer service, and administrative roles (e.g. executive assistants).
 The email body MUST explicitly list those role types. Vague "recruitment support" is invalid.
-Do not list what Larkspur does not place — positive framing only.
+Do not list what Larkspur does not place. Positive framing only.
 Do not invent client relationships, case studies, or company facts.
-The recipient's email app already adds a signature — do not add Best regards/name/title/phone/web or any signature block.
+Never use em dashes, en dashes as pauses, or double hyphens (--). Use periods or commas.
+The recipient's email app already adds a signature. Do not add Best regards/name/title/phone/web or any signature block.
 Return JSON: { "subject": string, "body": string } with plain-text body.`;
 
-/**
- * Server-only call to the Groq API free tier (OpenAI-compatible chat
- * completions). Generates personalized WhatsApp outreach messages.
- */
 export async function generateMessage(prompt: string): Promise<GroqCallResult> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
@@ -66,6 +76,9 @@ export async function generateMessage(prompt: string): Promise<GroqCallResult> {
   }
 
   const message = JSON.parse(content) as GeneratedMessage;
+  if (typeof message.content === "string") {
+    message.content = stripAiDashes(message.content);
+  }
   return { message, usage: data.usage ?? {} };
 }
 
@@ -116,7 +129,10 @@ export async function generateEmail(prompt: string): Promise<GroqEmailCallResult
   }
 
   return {
-    email: { subject: parsed.subject.trim(), body: parsed.body.trim() },
+    email: {
+      subject: stripAiDashes(parsed.subject.trim()),
+      body: stripAiDashes(parsed.body.trim()),
+    },
     usage: data.usage ?? {},
   };
 }
