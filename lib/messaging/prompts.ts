@@ -1,14 +1,11 @@
 import type { Company, Contact, MessageStage } from "@/lib/types";
 
-/** Short form for WhatsApp (fits ~280 chars). */
+/** Short form for WhatsApp (fits ~280–320 chars). */
 const ROLES_SHORT = "sales, business development, customer service, and admin (e.g. EA)";
 
 /** Full form for email. */
 const ROLES_FULL =
   "business development, sales, customer service, and administrative roles (e.g. executive assistants)";
-
-const ROLES_WE_DO_NOT_HIRE_FOR =
-  "tax auditors, specialist accountants, lawyers, marine/petroleum engineers, doctors, nurses, or other licensed professional/technical specialists";
 
 export function buildMessagePrompt(
   company: Company,
@@ -37,11 +34,11 @@ export function buildMessagePrompt(
 
 Stage: ${stage}
 Context: ${stageContext[stage]}
-${historySection}MANDATORY product truth (do not skip):
-- Larkspur places: ${ROLES_SHORT}.
-- Larkspur does NOT place: ${ROLES_WE_DO_NOT_HIRE_FOR}.
-- Unless stage is "breakup", the message body MUST include a clear phrase that we help with sales, business development, customer service, and/or admin (EA) hiring. Vague "hiring needs" alone is NOT enough.
-- Industry (${industry}) is tone only. Never imply we staff specialist professional roles for that industry.
+${historySection}What to say (positive framing only):
+- Larkspur helps Nigerian companies hire ${ROLES_SHORT}.
+- Unless stage is "breakup", the message body MUST include a clear phrase about sales, business development, customer service, and/or admin (EA) hiring. Vague "hiring needs" alone is NOT enough.
+- Do not list what Larkspur does not do — let the named roles imply the focus.
+- Industry (${industry}) is tone only. Do not pitch specialist professional hiring for that industry.
 
 Example shape (do not copy verbatim; adapt names):
 "Goodday! I'm Mishael from Larkspur — we help Nigerian businesses hire sales, BD, customer service, and admin talent (like EAs). Are you open to a quick chat if ${company.name} needs any of those roles?"
@@ -68,11 +65,11 @@ export function buildEmailPrompt(company: Company, contact: Contact | null): str
 
   return `Write an initial recruitment outreach email to ${contactName} at ${company.name}, a ${industry} company in ${company.city || "Lagos"}.
 
-MANDATORY product truth:
-- Larkspur places: ${ROLES_FULL}.
-- Larkspur does NOT place: ${ROLES_WE_DO_NOT_HIRE_FOR}.
+What to say (positive framing only):
+- Larkspur helps companies hire ${ROLES_FULL}.
 - The body MUST explicitly list those role types. "Hiring support" or "recruitment help" alone is NOT enough.
-- Industry (${industry}) is context only — never imply specialist professional staffing for that industry.
+- Do not list what Larkspur does not do — the named roles are enough.
+- Industry (${industry}) is context only — do not pitch specialist professional staffing for that industry.
 
 Requirements:
 - Subject: clear, natural, under 70 characters; may reference sales/CS/admin hiring
