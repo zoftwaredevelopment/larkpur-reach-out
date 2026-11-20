@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SYMBOL_DATA_URI, WORDMARK_DATA_URI } from "@/lib/brand/logoAssets";
+import { SignOutButton } from "@/components/SignOutButton";
 
 /**
  * Global brand shell — official logo lockup + nav. Cosmetic only.
@@ -54,6 +55,7 @@ export function BrandChrome() {
           >
             Settings
           </Link>
+          <SignOutButton />
         </nav>
       </div>
     </header>
