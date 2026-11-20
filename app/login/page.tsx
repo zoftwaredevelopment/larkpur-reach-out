@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { SYMBOL_DATA_URI } from "@/lib/brand/logoAssets";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -34,13 +35,13 @@ export default function LoginPage() {
     <div className="min-h-[calc(100vh-3.5rem)] flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div
-            className="mx-auto mb-4 w-12 h-12 rounded-xl shadow-md"
-            style={{
-              background:
-                "linear-gradient(135deg, #1a1b87 0%, #2d2f7f 40%, #8b97fe 100%)",
-            }}
-            aria-hidden
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={SYMBOL_DATA_URI}
+            alt="Larkspur"
+            width={48}
+            height={48}
+            className="mx-auto mb-4 h-12 w-12 object-contain"
           />
           <h1 className="text-2xl font-semibold text-[#1a1b87] tracking-tight">
             Larkspur
