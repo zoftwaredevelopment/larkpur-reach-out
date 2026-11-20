@@ -4,6 +4,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
+const DEFAULT_FOLLOW_UP_DAYS = 7;
+
 type ParsedMessage = {
   timestamp: string | null;
   sender: string | null;
@@ -14,10 +16,14 @@ function parseChatHistory(chat: string): ParsedMessage[] {
   const lines = chat.split(/\r?\n/);
   const messages: ParsedMessage[] = [];
 
-  const patterns = [
-    /^\[?(\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?)\]?\s*[-–]?\s*~?([^:]+):\s*(.*)$/i,
-    /^(\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)\s*-\s*([^:]+):\s*(.*)$/i,
+  // Full WhatsApp export lines (with timestamp)
+  const stampedPatterns = [
+    /^\[?(\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?)\]?\s*[-–—]?\s*~?([^:]+):\s*(.*)$/i,
+    /^(\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)\s*[-–—]\s*([^:]+):\s*(.*)$/i,
   ];
+
+  // Sender without timestamp: "Mishael: hello" or "Client Name: hi"
+  const senderOnly = /^~?([A-Za-z][^:]{0,80}):\s*(.+)$/;
 
   let current: ParsedMessage | null = null;
 
@@ -33,7 +39,7 @@ function parseChatHistory(chat: string): ParsedMessage[] {
     if (!line) continue;
 
     let matched = false;
-    for (const re of patterns) {
+    for (const re of stampedPatterns) {
       const m = line.match(re);
       if (m) {
         flush();
@@ -47,11 +53,37 @@ function parseChatHistory(chat: string): ParsedMessage[] {
       }
     }
 
+    if (!matched) {
+      const m2 = line.match(senderOnly);
+      if (m2) {
+        flush();
+        current = {
+          timestamp: null,
+          sender: m2[1].trim().replace(/^~/, ""),
+          content: m2[2].trim(),
+        };
+        matched = true;
+      }
+    }
+
     if (!matched && current) {
       current.content += "\n" + line;
     }
   }
   flush();
+
+  // Plain paste: no timestamps and no "Name:" headers — treat whole text as one outbound message from you
+  if (messages.length === 0) {
+    const plain = chat.trim();
+    if (plain) {
+      messages.push({
+        timestamp: null,
+        sender: "Mishael",
+        content: plain,
+      });
+    }
+  }
+
   return messages;
 }
 
@@ -90,17 +122,28 @@ function normalizeWhatsAppTimestamp(ts: string): string | null {
 }
 
 function isFromOwner(sender: string | null): boolean {
-  if (!sender) return false;
+  if (!sender) return true; // plain paste with no sender → treat as you
   const s = sender.toLowerCase();
-  return s.includes("mishael") || s.includes("mishaelt") || s === "me" || s === "you";
+  return (
+    s.includes("mishael") ||
+    s.includes("mishaelt") ||
+    s.includes("larkspur") ||
+    s === "me" ||
+    s === "you"
+  );
 }
 
-/** White / client messages — valid enum only */
 function isClientInteraction(type: string, notes?: string | null): boolean {
   const t = (type || "").toLowerCase();
   if (t === "whatsapp_reply") return true;
   if (notes === "email_client_paste") return true;
   return false;
+}
+
+function nextFollowUpIso(fromIso: string, days = DEFAULT_FOLLOW_UP_DAYS): string {
+  const d = new Date(fromIso);
+  d.setTime(d.getTime() + days * 24 * 60 * 60 * 1000);
+  return d.toISOString();
 }
 
 export async function POST(request: Request) {
@@ -195,7 +238,6 @@ export async function POST(request: Request) {
     }
 
     const isMine = who === "larkspur";
-    // enum: email = outbound, note + email_client_paste = inbound client email
     const type = isMine ? "email" : "note";
     const notes = isMine ? "email_paste" : "email_client_paste";
 
@@ -212,15 +254,16 @@ export async function POST(request: Request) {
     }
 
     const stage = isMine ? "contacted" : "replied";
+    const leadUpdate: Record<string, unknown> = {
+      stage,
+      updated_at: now,
+      last_contacted_at: now,
+    };
+    if (isMine) {
+      leadUpdate.next_follow_up_at = nextFollowUpIso(now);
+    }
 
-    await admin
-      .from("larkspur_leads")
-      .update({
-        stage,
-        updated_at: now,
-        last_contacted_at: now,
-      })
-      .eq("id", lead_id);
+    await admin.from("larkspur_leads").update(leadUpdate).eq("id", lead_id);
 
     return NextResponse.json({
       success: true,
@@ -231,7 +274,7 @@ export async function POST(request: Request) {
     });
   }
 
-  // --- WhatsApp full chat history ---
+  // --- WhatsApp chat history (export OR plain single message) ---
   if (chat_history) {
     const parsed = parseChatHistory(chat_history);
     if (parsed.length === 0) {
@@ -280,13 +323,12 @@ export async function POST(request: Request) {
       added = insertRows.length;
     }
 
-    const hasClientInPaste = insertRows.some((r) =>
-      isClientInteraction(r.type, r.notes)
-    );
+    const hasClientInPaste = insertRows.some((r) => isClientInteraction(r.type, r.notes));
     const hasClientExisting = (existing ?? []).some((i: any) =>
       isClientInteraction(i.type || "", i.notes)
     );
     const hasClientMessage = hasClientInPaste || hasClientExisting;
+    const hasOutboundInPaste = insertRows.some((r) => r.type === "whatsapp_sent");
 
     const stageUpdate: Record<string, unknown> = {
       updated_at: now,
@@ -295,8 +337,13 @@ export async function POST(request: Request) {
 
     if (hasClientMessage) {
       stageUpdate.stage = "replied";
+    } else if (added > 0 && hasOutboundInPaste) {
+      // First message logged = confirmation you sent outreach
+      stageUpdate.stage = "contacted";
+      stageUpdate.next_follow_up_at = nextFollowUpIso(now);
     } else if (added > 0) {
       stageUpdate.stage = "contacted";
+      stageUpdate.next_follow_up_at = nextFollowUpIso(now);
     }
 
     await admin.from("larkspur_leads").update(stageUpdate).eq("id", lead_id);
