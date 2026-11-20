@@ -2,34 +2,32 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+  const [message, setMessage] = useState<string | null>(null);
   const supabase = createClient();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
+    setMessage(null);
 
-    const { error: signError } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (signError) {
-      setError(signError.message);
+    if (error) {
+      setMessage(error.message);
       setLoading(false);
       return;
     }
 
-    router.push("/");
-    router.refresh();
+    // Success → hard navigate so middleware + cookies are fully applied
+    window.location.href = "/";
   };
 
   return (
@@ -51,35 +49,48 @@ export default function LoginPage() {
         </div>
 
         <form
-          onSubmit={handleLogin}
+          onSubmit={handleSignIn}
           className="bg-white rounded-xl shadow p-8 border border-[rgba(26,27,135,0.06)] space-y-4"
         >
-          {error && (
+          {message && (
             <div className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-md px-3 py-2">
-              {error}
+              {message}
             </div>
           )}
           <div>
-            <label className="block text-xs font-medium text-[#2d2f7f] mb-1">
-              Email
+            <label
+              htmlFor="email"
+              className="block text-xs font-medium text-[#2d2f7f] mb-1"
+            >
+              Email address
             </label>
             <input
+              id="email"
+              name="email"
               type="email"
+              autoComplete="email"
+              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required
               className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#8b97fe]"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-[#2d2f7f] mb-1">
+            <label
+              htmlFor="password"
+              className="block text-xs font-medium text-[#2d2f7f] mb-1"
+            >
               Password
             </label>
             <input
+              id="password"
+              name="password"
               type="password"
+              autoComplete="current-password"
+              required
+              minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
               className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#8b97fe]"
             />
           </div>
