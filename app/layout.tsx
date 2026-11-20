@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import "./globals.css";
 import { BrandChrome } from "@/components/BrandChrome";
+import { FAVICON_DATA_URI } from "@/lib/brand/logoAssets";
 
 const montserrat = Montserrat({
   subsets: ["latin"],
@@ -13,6 +14,9 @@ const montserrat = Montserrat({
 export const metadata: Metadata = {
   title: "Larkspur Reach Out",
   description: "WhatsApp outreach CRM for Nigerian SME recruitment leads",
+  icons: {
+    icon: FAVICON_DATA_URI,
+  },
 };
 
 export default function RootLayout({
