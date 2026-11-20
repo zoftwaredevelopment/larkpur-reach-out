@@ -1,1 +1,88 @@
 @import "tailwindcss";
+
+/*
+ * Larkspur brand tokens (from Brand Manual)
+ * Primary navy #1a1b87 · accent #8b97fe · text indigo #5960ca · deep #2d2f7f · soft #8b93c9
+ */
+@theme {
+  --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+
+  --color-brand-50: #f3f4ff;
+  --color-brand-100: #e4e7ff;
+  --color-brand-200: #c9ceff;
+  --color-brand-300: #8b97fe;
+  --color-brand-400: #8b93c9;
+  --color-brand-500: #5960ca;
+  --color-brand-600: #2d2f7f;
+  --color-brand-700: #1a1b87;
+  --color-brand-800: #12136a;
+  --color-brand-900: #0c0d4a;
+
+  --color-brand: #1a1b87;
+  --color-brand-accent: #8b97fe;
+  --color-brand-muted: #5960ca;
+}
+
+:root {
+  --brand: #1a1b87;
+  --brand-accent: #8b97fe;
+  --brand-deep: #2d2f7f;
+  --brand-muted: #5960ca;
+  --brand-soft: #8b93c9;
+  --brand-surface: #f3f4ff;
+  --brand-gradient: linear-gradient(135deg, #1a1b87 0%, #2d2f7f 45%, #8b97fe 100%);
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: #0f172a;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(139, 151, 254, 0.18), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(26, 27, 135, 0.08), transparent 55%),
+    #f8fafc;
+}
+
+/* Prefer brand blues over default Tailwind blue for common utility classes used across pages */
+.bg-blue-600 {
+  background-color: var(--brand) !important;
+}
+.bg-blue-600:hover,
+.hover\:bg-blue-700:hover {
+  background-color: var(--brand-deep) !important;
+}
+.text-blue-600,
+.text-blue-700,
+.text-blue-800,
+.text-blue-900 {
+  color: var(--brand) !important;
+}
+.hover\:text-blue-800:hover,
+.hover\:text-blue-900:hover {
+  color: var(--brand-deep) !important;
+}
+.border-blue-500 {
+  border-color: var(--brand-accent) !important;
+}
+.bg-blue-50 {
+  background-color: var(--brand-surface) !important;
+}
+.focus\:ring-blue-500:focus {
+  --tw-ring-color: var(--brand-accent) !important;
+}
+
+a {
+  text-underline-offset: 2px;
+}
+
+/* Cards / tables — slightly softer brand-aligned chrome */
+.bg-white.rounded-lg.shadow {
+  border: 1px solid rgba(26, 27, 135, 0.06);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 24px rgba(26, 27, 135, 0.06);
+}
