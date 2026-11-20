@@ -104,6 +104,7 @@ export interface Interaction {
   replied_at: string | null;
   reply_content: string | null;
   notes: string | null;
+  user_id: string | null;
   created_at: string;
 }
 
