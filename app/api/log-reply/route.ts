@@ -22,7 +22,7 @@ function parseChatHistory(chat: string): ParsedMessage[] {
     /^(\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)\s*[-–—]\s*([^:]+):\s*(.*)$/i,
   ];
 
-  // Sender without timestamp: "Mishael: hello" or "Client Name: hi"
+  // Sender without timestamp: "Name: hello"
   const senderOnly = /^~?([A-Za-z][^:]{0,80}):\s*(.+)$/;
 
   let current: ParsedMessage | null = null;
@@ -78,7 +78,7 @@ function parseChatHistory(chat: string): ParsedMessage[] {
     if (plain) {
       messages.push({
         timestamp: null,
-        sender: "Mishael",
+        sender: "You",
         content: plain,
       });
     }
@@ -121,16 +121,19 @@ function normalizeWhatsAppTimestamp(ts: string): string | null {
   }
 }
 
-function isFromOwner(sender: string | null): boolean {
+function isFromOwner(sender: string | null, userHints: string[] = []): boolean {
   if (!sender) return true; // plain paste with no sender → treat as you
   const s = sender.toLowerCase();
-  return (
+  if (
     s.includes("mishael") ||
     s.includes("mishaelt") ||
     s.includes("larkspur") ||
     s === "me" ||
     s === "you"
-  );
+  ) {
+    return true;
+  }
+  return userHints.some((h) => h && s.includes(h.toLowerCase()));
 }
 
 function isClientInteraction(type: string, notes?: string | null): boolean {
@@ -154,6 +157,11 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const userHints = [
+    user.user_metadata?.full_name,
+    user.email?.split("@")[0],
+  ].filter(Boolean) as string[];
 
   const body = await request.json();
   const {
@@ -194,6 +202,7 @@ export async function POST(request: Request) {
       reply_content: reply_content.trim(),
       replied_at: now,
       notes: outreach_method === "email" ? "email_client_paste" : null,
+      user_id: user.id,
     });
 
     await admin
@@ -248,6 +257,7 @@ export async function POST(request: Request) {
       replied_at: now,
       message_content: null,
       notes,
+      user_id: user.id,
     });
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -303,7 +313,7 @@ export async function POST(request: Request) {
     });
 
     const insertRows = newMessages.map((m) => {
-      const mine = isFromOwner(m.sender);
+      const mine = isFromOwner(m.sender, userHints);
       return {
         lead_id,
         type: mine ? "whatsapp_sent" : "whatsapp_reply",
@@ -311,6 +321,7 @@ export async function POST(request: Request) {
         replied_at: m.timestamp || now,
         message_content: null as string | null,
         notes: null as string | null,
+        user_id: user.id,
       };
     });
 

@@ -54,6 +54,7 @@ export async function POST(request: Request) {
     type: interactionTypeMap[contact_method] || "whatsapp_sent",
     message_content: messageContentMap[contact_method] || "Initial message sent",
     sent_at: now.toISOString(),
+    user_id: user.id,
   });
 
   return NextResponse.json({

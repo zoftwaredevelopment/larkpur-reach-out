@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { SYMBOL_DATA_URI } from "@/lib/brand/logoAssets";
 
@@ -77,12 +78,20 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label
-              htmlFor="password"
-              className="block text-xs font-medium text-[#2d2f7f] mb-1"
-            >
-              Password
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label
+                htmlFor="password"
+                className="block text-xs font-medium text-[#2d2f7f]"
+              >
+                Password
+              </label>
+              <Link
+                href="/forgot-password"
+                className="text-xs text-[#5960ca] hover:text-[#1a1b87] hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
             <input
               id="password"
               name="password"
@@ -103,6 +112,12 @@ export default function LoginPage() {
           >
             {loading ? "Signing in…" : "Sign in"}
           </button>
+          <p className="text-center text-sm text-[#5960ca]">
+            New here?{" "}
+            <Link href="/signup" className="font-medium text-[#1a1b87] hover:underline">
+              Create an account
+            </Link>
+          </p>
         </form>
       </div>
     </div>
