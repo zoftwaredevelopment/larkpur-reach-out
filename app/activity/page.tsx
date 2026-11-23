@@ -26,6 +26,14 @@ function asOne<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
+function eventIso(row: {
+  sent_at?: string | null;
+  replied_at?: string | null;
+  created_at?: string | null;
+}): string | null {
+  return row.sent_at || row.replied_at || row.created_at || null;
+}
+
 export default async function ActivityPage({
   searchParams,
 }: {
@@ -55,6 +63,7 @@ export default async function ActivityPage({
   const rangeStart = startOfMonth(monthDate);
   const rangeEnd = endOfMonth(monthDate);
 
+  // Fetch outbound; filter by coalesced date in JS (imports often lack sent_at)
   const { data: interactions } = await supabase
     .from("larkspur_interactions")
     .select(
@@ -73,64 +82,32 @@ export default async function ActivityPage({
       )
     `
     )
-    .in("type", ["whatsapp_sent", "email", "call"])
-    .gte("sent_at", rangeStart.toISOString())
-    .lte("sent_at", rangeEnd.toISOString())
-    .order("sent_at", { ascending: false });
+    .in("type", ["whatsapp_sent", "email", "call"]);
 
-  const { data: interactionsFallback } = await supabase
-    .from("larkspur_interactions")
-    .select(
-      `
-      id,
-      type,
-      sent_at,
-      replied_at,
-      created_at,
-      notes,
-      lead_id,
-      larkspur_leads (
-        id,
-        stage,
-        larkspur_companies ( name, city, industry )
-      )
-    `
-    )
-    .in("type", ["whatsapp_sent", "email", "call"])
-    .is("sent_at", null)
-    .gte("created_at", rangeStart.toISOString())
-    .lte("created_at", rangeEnd.toISOString())
-    .order("created_at", { ascending: false });
+  const all = (interactions || []) as any[];
 
-  const all = [...(interactions || []), ...(interactionsFallback || [])] as any[];
-
-  type DayEntry = {
-    count: number;
-    byLead: Map<
-      string,
-      {
-        leadId: string;
-        companyName: string;
-        city: string | null;
-        industry: string | null;
-        stage: string | null;
-        types: Set<string>;
-      }
-    >;
+  type LeadInfo = {
+    leadId: string;
+    companyName: string;
+    city: string | null;
+    industry: string | null;
+    stage: string | null;
+    types: Set<string>;
   };
 
-  const byDay = new Map<string, DayEntry>();
+  const byDay = new Map<string, Map<string, LeadInfo>>();
 
   for (const row of all) {
-    const ts = row.sent_at || row.created_at;
+    if (row.notes === "follow_up_confirmed") continue;
+
+    const ts = eventIso(row);
     if (!ts) continue;
+    const t = new Date(ts);
+    if (t < rangeStart || t > rangeEnd) continue;
 
     const key = toDateKey(ts);
-    if (!byDay.has(key)) {
-      byDay.set(key, { count: 0, byLead: new Map() });
-    }
-    const day = byDay.get(key)!;
-    day.count += 1;
+    if (!byDay.has(key)) byDay.set(key, new Map());
+    const dayMap = byDay.get(key)!;
 
     const lead = asOne(row.larkspur_leads);
     const leadId: string | undefined = row.lead_id || lead?.id;
@@ -138,8 +115,8 @@ export default async function ActivityPage({
 
     const company = asOne(lead?.larkspur_companies);
 
-    if (!day.byLead.has(leadId)) {
-      day.byLead.set(leadId, {
+    if (!dayMap.has(leadId)) {
+      dayMap.set(leadId, {
         leadId,
         companyName: company?.name || "Unknown company",
         city: company?.city || null,
@@ -148,9 +125,10 @@ export default async function ActivityPage({
         types: new Set(),
       });
     }
-    day.byLead.get(leadId)!.types.add(row.type);
+    dayMap.get(leadId)!.types.add(row.type);
   }
 
+  // dayCounts = unique companies that day (matches list length)
   const dayCounts: Record<string, number> = {};
   const dayDetails: Record<
     string,
@@ -164,9 +142,9 @@ export default async function ActivityPage({
     }>
   > = {};
 
-  for (const [key, entry] of byDay.entries()) {
-    dayCounts[key] = entry.count;
-    dayDetails[key] = Array.from(entry.byLead.values()).map((v) => ({
+  for (const [key, dayMap] of byDay.entries()) {
+    dayCounts[key] = dayMap.size;
+    dayDetails[key] = Array.from(dayMap.values()).map((v) => ({
       leadId: v.leadId,
       companyName: v.companyName,
       city: v.city,
@@ -178,7 +156,7 @@ export default async function ActivityPage({
 
   const monthParam = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
   const selectedDay =
-    params.day && Object.prototype.hasOwnProperty.call(dayDetails, params.day)
+    params.day && dayDetails[params.day] != null
       ? params.day
       : params.day && dayCounts[params.day] != null
         ? params.day
@@ -198,13 +176,16 @@ export default async function ActivityPage({
   const activeDays = Object.keys(dayCounts).length;
   const selectedList = selectedDay ? dayDetails[selectedDay] || [] : [];
 
+  const todayKey = toDateKey(now.toISOString());
+  const todayCount = dayCounts[todayKey] || 0;
+
   return (
     <div className="max-w-7xl mx-auto p-8">
       <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Outreach activity</h1>
           <p className="text-gray-600 mt-1">
-            Daily message counts and the companies you contacted
+            Unique companies contacted per day (first touch or follow-up = 1)
           </p>
         </div>
         <div className="flex gap-3 flex-wrap">
@@ -217,14 +198,18 @@ export default async function ActivityPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div className="bg-white rounded-lg shadow p-5">
-          <div className="text-sm text-gray-500 mb-1">Messages this month</div>
-          <div className="text-3xl font-bold text-blue-600">{monthTotal}</div>
+          <div className="text-sm text-gray-500 mb-1">Companies today</div>
+          <div className="text-3xl font-bold text-blue-600">{todayCount}</div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-5">
+          <div className="text-sm text-gray-500 mb-1">Company-days this month</div>
+          <div className="text-3xl font-bold text-indigo-600">{monthTotal}</div>
         </div>
         <div className="bg-white rounded-lg shadow p-5">
           <div className="text-sm text-gray-500 mb-1">Active days this month</div>
-          <div className="text-3xl font-bold text-indigo-600">{activeDays}</div>
+          <div className="text-3xl font-bold text-teal-600">{activeDays}</div>
         </div>
       </div>
 
@@ -256,8 +241,8 @@ export default async function ActivityPage({
         <div className="mt-8 bg-white rounded-lg shadow overflow-hidden">
           <div className="p-4 border-b flex justify-between items-center">
             <h3 className="font-semibold text-gray-900">
-              {selectedDay} · {dayCounts[selectedDay] || 0} message
-              {(dayCounts[selectedDay] || 0) === 1 ? "" : "s"}
+              {selectedDay} · {dayCounts[selectedDay] || 0} compan
+              {(dayCounts[selectedDay] || 0) === 1 ? "y" : "ies"}
             </h3>
             <Link
               href={`/activity?month=${monthParam}`}
@@ -300,8 +285,8 @@ export default async function ActivityPage({
       )}
 
       <p className="mt-6 text-xs text-gray-400">
-        Counts outbound interactions (WhatsApp sent, email, call) by send date. Older months stay
-        available via Prev / Next.
+        Each company counts once per day whether it was a first message or a follow-up. Calendar
+        number always matches the list length.
       </p>
     </div>
   );
