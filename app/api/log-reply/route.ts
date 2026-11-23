@@ -16,13 +16,11 @@ function parseChatHistory(chat: string): ParsedMessage[] {
   const lines = chat.split(/\r?\n/);
   const messages: ParsedMessage[] = [];
 
-  // Full WhatsApp export lines (with timestamp)
   const stampedPatterns = [
     /^\[?(\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?)\]?\s*[-–—]?\s*~?([^:]+):\s*(.*)$/i,
     /^(\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)\s*[-–—]\s*([^:]+):\s*(.*)$/i,
   ];
 
-  // Sender without timestamp: "Name: hello"
   const senderOnly = /^~?([A-Za-z][^:]{0,80}):\s*(.+)$/;
 
   let current: ParsedMessage | null = null;
@@ -72,7 +70,6 @@ function parseChatHistory(chat: string): ParsedMessage[] {
   }
   flush();
 
-  // Plain paste: no timestamps and no "Name:" headers — treat whole text as one outbound message from you
   if (messages.length === 0) {
     const plain = chat.trim();
     if (plain) {
@@ -122,7 +119,7 @@ function normalizeWhatsAppTimestamp(ts: string): string | null {
 }
 
 function isFromOwner(sender: string | null, userHints: string[] = []): boolean {
-  if (!sender) return true; // plain paste with no sender → treat as you
+  if (!sender) return true;
   const s = sender.toLowerCase();
   if (
     s.includes("mishael") ||
@@ -211,13 +208,14 @@ export async function POST(request: Request) {
         stage: "replied",
         updated_at: now,
         last_contacted_at: now,
+        next_follow_up_at: null,
       })
       .eq("id", lead_id);
 
     return NextResponse.json({ success: true, stage: "replied", added: 1 });
   }
 
-  // --- Email mode (manual Larkspur / Client) ---
+  // --- Email mode ---
   if (chat_history && email_mode) {
     const who = speaker === "larkspur" ? "larkspur" : "client";
     const content = String(chat_history).trim();
@@ -263,28 +261,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const stage = isMine ? "contacted" : "replied";
     const leadUpdate: Record<string, unknown> = {
-      stage,
+      stage: isMine ? "contacted" : "replied",
       updated_at: now,
       last_contacted_at: now,
     };
+
     if (isMine) {
+      // You sent → leave today's pile, due again in 7 days
       leadUpdate.next_follow_up_at = nextFollowUpIso(now);
+    } else {
+      // Client replied → off the cold follow-up cycle
+      leadUpdate.next_follow_up_at = null;
     }
 
     await admin.from("larkspur_leads").update(leadUpdate).eq("id", lead_id);
 
     return NextResponse.json({
       success: true,
-      stage,
+      stage: leadUpdate.stage,
       added: 1,
       total_parsed: 1,
       already_recorded: 0,
     });
   }
 
-  // --- WhatsApp chat history (export OR plain single message) ---
+  // --- WhatsApp chat history ---
   if (chat_history) {
     const parsed = parseChatHistory(chat_history);
     if (parsed.length === 0) {
@@ -334,7 +336,9 @@ export async function POST(request: Request) {
       added = insertRows.length;
     }
 
-    const hasClientInPaste = insertRows.some((r) => isClientInteraction(r.type, r.notes));
+    const hasClientInPaste = insertRows.some((r) =>
+      isClientInteraction(r.type, r.notes)
+    );
     const hasClientExisting = (existing ?? []).some((i: any) =>
       isClientInteraction(i.type || "", i.notes)
     );
@@ -347,12 +351,11 @@ export async function POST(request: Request) {
     };
 
     if (hasClientMessage) {
+      // Live conversation — off follow-up pile
       stageUpdate.stage = "replied";
-    } else if (added > 0 && hasOutboundInPaste) {
-      // First message logged = confirmation you sent outreach
-      stageUpdate.stage = "contacted";
-      stageUpdate.next_follow_up_at = nextFollowUpIso(now);
-    } else if (added > 0) {
+      stageUpdate.next_follow_up_at = null;
+    } else if (added > 0 && (hasOutboundInPaste || true)) {
+      // You logged outbound (or any new own-only paste) → leave today, due in 7 days
       stageUpdate.stage = "contacted";
       stageUpdate.next_follow_up_at = nextFollowUpIso(now);
     }
@@ -366,6 +369,7 @@ export async function POST(request: Request) {
       total_parsed: parsed.length,
       already_recorded: parsed.length - added,
       has_client_message: hasClientMessage,
+      next_follow_up_at: stageUpdate.next_follow_up_at ?? null,
     });
   }
 

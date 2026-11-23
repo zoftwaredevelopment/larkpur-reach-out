@@ -38,15 +38,20 @@ export default async function FollowUpsPage() {
     redirect("/login");
   }
 
+  // End of today — only due / overdue follow-ups (not "scheduled in 7 days")
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+
   const { data: leads } = await supabase
     .from("larkspur_leads")
     .select(
-      "id, stage, next_follow_up_at, larkspur_companies(name, industry, city), larkspur_contacts(name, role)"
+      "id, stage, next_follow_up_at, last_contacted_at, larkspur_companies(name, industry, city), larkspur_contacts(name, role)"
     )
     .neq("stage", "disqualified")
     .neq("stage", "client")
     .neq("stage", "unreachable")
     .not("next_follow_up_at", "is", null)
+    .lte("next_follow_up_at", endOfToday.toISOString())
     .order("next_follow_up_at", { ascending: true });
 
   const rows = leads || [];
@@ -57,7 +62,7 @@ export default async function FollowUpsPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Follow-ups Needed</h1>
           <p className="text-gray-600 mt-1">
-            {rows.length} lead{rows.length === 1 ? "" : "s"} due for follow-up
+            {rows.length} lead{rows.length === 1 ? "" : "s"} due now (7+ days since last send)
           </p>
         </div>
         <Link href="/leads" className="text-blue-600 hover:text-blue-800 font-medium">
@@ -68,6 +73,9 @@ export default async function FollowUpsPage() {
       {rows.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
           <p className="text-green-600 mb-4">No follow-ups needed right now</p>
+          <p className="text-sm text-gray-500 mb-4">
+            Leads reappear here 7 days after you last sent or logged outreach.
+          </p>
           <Link href="/leads" className="text-blue-600 hover:text-blue-800 font-medium">
             View Leads →
           </Link>
