@@ -6,6 +6,12 @@ import { LeadRowActions } from "./LeadRowActions";
 
 export const dynamic = "force-dynamic";
 
+/** PostgREST may return a related row as object or as a 1-element array. */
+function firstRel<T>(rel: T | T[] | null | undefined): T | null {
+  if (rel == null) return null;
+  return Array.isArray(rel) ? rel[0] ?? null : rel;
+}
+
 export default async function LeadsPage({
   searchParams,
 }: {
@@ -25,30 +31,33 @@ export default async function LeadsPage({
   const stageFilter = params.stage || "";
   const industryFilter = params.industry || "";
 
+  // Include phone/email on both company and contact — detail UI already falls back to company.phone
   const { data: allLeads } = await supabase
     .from("larkspur_leads")
     .select(
-      "*, larkspur_companies(name, industry, city, website), larkspur_contacts(name, role, phone, email)"
+      "*, larkspur_companies(name, industry, city, website, phone), larkspur_contacts(name, role, phone, email)"
     )
     .neq("stage", "disqualified")
     .order("updated_at", { ascending: false });
 
   const leads = (allLeads || []).filter((lead: any) => {
+    const company = firstRel(lead.larkspur_companies);
+    const contact = firstRel(lead.larkspur_contacts);
+
     if (stageFilter && lead.stage !== stageFilter) return false;
     if (
       industryFilter &&
-      lead.larkspur_companies?.industry?.toLowerCase() !==
-        industryFilter.toLowerCase()
+      company?.industry?.toLowerCase() !== industryFilter.toLowerCase()
     )
       return false;
     if (search) {
-      const company = (lead.larkspur_companies?.name || "").toLowerCase();
-      const contact = (lead.larkspur_contacts?.name || "").toLowerCase();
-      const industry = (lead.larkspur_companies?.industry || "").toLowerCase();
-      const city = (lead.larkspur_companies?.city || "").toLowerCase();
+      const companyName = (company?.name || "").toLowerCase();
+      const contactName = (contact?.name || "").toLowerCase();
+      const industry = (company?.industry || "").toLowerCase();
+      const city = (company?.city || "").toLowerCase();
       if (
-        !company.includes(search) &&
-        !contact.includes(search) &&
+        !companyName.includes(search) &&
+        !contactName.includes(search) &&
         !industry.includes(search) &&
         !city.includes(search)
       )
@@ -65,7 +74,7 @@ export default async function LeadsPage({
   const allIndustries = [
     ...new Set(
       (allLeads || [])
-        .map((l: any) => l.larkspur_companies?.industry)
+        .map((l: any) => firstRel(l.larkspur_companies)?.industry)
         .filter(Boolean)
     ),
   ].sort();
@@ -210,59 +219,68 @@ export default async function LeadsPage({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {freshLeads.map((lead: any) => (
-                  <tr key={lead.id} className="hover:bg-gray-50 align-top">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Link
-                        href={`/leads/${lead.id}`}
-                        className="text-sm font-medium text-blue-700 hover:text-blue-900 hover:underline"
-                      >
-                        {lead.larkspur_companies?.name || "—"}
-                      </Link>
-                      <div className="text-sm text-gray-500">
-                        {lead.larkspur_companies?.city}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {lead.larkspur_contacts?.name || "—"}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {lead.larkspur_contacts?.role || "—"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {lead.larkspur_companies?.industry || "—"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {lead.larkspur_companies?.website ? (
-                        <a
-                          href={lead.larkspur_companies.website}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline"
+                {freshLeads.map((lead: any) => {
+                  const company = firstRel(lead.larkspur_companies);
+                  const contact = firstRel(lead.larkspur_contacts);
+                  // Same fallback order as LeadDetailClient
+                  const phone =
+                    contact?.phone || company?.phone || lead.phone || null;
+                  const email = contact?.email || company?.email || null;
+
+                  return (
+                    <tr key={lead.id} className="hover:bg-gray-50 align-top">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Link
+                          href={`/leads/${lead.id}`}
+                          className="text-sm font-medium text-blue-700 hover:text-blue-900 hover:underline"
                         >
-                          {lead.larkspur_companies.website}
-                        </a>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <StageSelect leadId={lead.id} currentStage={lead.stage} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(lead.last_contacted_at)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <LeadRowActions
-                        leadId={lead.id}
-                        phone={lead.larkspur_contacts?.phone}
-                        email={lead.larkspur_contacts?.email}
-                      />
-                    </td>
-                  </tr>
-                ))}
+                          {company?.name || "—"}
+                        </Link>
+                        <div className="text-sm text-gray-500">
+                          {company?.city}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {contact?.name || "—"}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {contact?.role || "—"}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {company?.industry || "—"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {company?.website ? (
+                          <a
+                            href={company.website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            {company.website}
+                          </a>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <StageSelect leadId={lead.id} currentStage={lead.stage} />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDate(lead.last_contacted_at)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <LeadRowActions
+                          leadId={lead.id}
+                          phone={phone}
+                          email={email}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
