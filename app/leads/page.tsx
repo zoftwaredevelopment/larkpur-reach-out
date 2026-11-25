@@ -56,6 +56,7 @@ export default async function LeadsPage({
     return true;
   });
 
+  // Top pile = not yet outreached. First logged outreach moves stage off prospect.
   const freshLeads = stageFilter
     ? leads
     : leads.filter((l: any) => (l.stage || "prospect") === "prospect");
@@ -91,7 +92,7 @@ export default async function LeadsPage({
           <p className="text-gray-600 mt-1">
             {stageFilter
               ? `${leads.length} lead${leads.length === 1 ? "" : "s"} (filtered)`
-              : `${freshLeads.length} fresh lead${freshLeads.length === 1 ? "" : "s"} (prospects)`}
+              : `${freshLeads.length} fresh lead${freshLeads.length === 1 ? "" : "s"} (prospects) in your pipeline`}
           </p>
         </div>
         <div className="flex gap-3 flex-wrap">
@@ -180,22 +181,22 @@ export default async function LeadsPage({
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Company
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Contact
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Industry
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Website
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Stage
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Last contact
                   </th>
                 </tr>
@@ -206,11 +207,7 @@ export default async function LeadsPage({
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Link
                         href={`/leads/${lead.id}`}
-<<<<<<< HEAD
-                        className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-=======
                         className="text-sm font-medium text-blue-700 hover:text-blue-900 hover:underline"
->>>>>>> eb4d793012a65898ff832c2a9be71593379ac345
                       >
                         {lead.larkspur_companies?.name || "—"}
                       </Link>
