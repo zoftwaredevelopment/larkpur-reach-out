@@ -209,9 +209,12 @@ export default async function LeadsPage({
                 {freshLeads.map((lead: any) => (
                   <tr key={lead.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {lead.larkspur_companies?.name}
-                      </div>
+                      <Link
+                        href={`/leads/${lead.id}`}
+                        className="text-sm font-medium text-blue-700 hover:text-blue-900 hover:underline"
+                      >
+                        {lead.larkspur_companies?.name || "—"}
+                      </Link>
                       <div className="text-sm text-gray-500">
                         {lead.larkspur_companies?.city}
                       </div>
