@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { StageSelect } from "./StageSelect";
+import { LeadRowActions } from "./LeadRowActions";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +94,10 @@ export default async function LeadsPage({
             {stageFilter
               ? `${leads.length} lead${leads.length === 1 ? "" : "s"} (filtered)`
               : `${freshLeads.length} fresh lead${freshLeads.length === 1 ? "" : "s"} (prospects) in your pipeline`}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            WhatsApp / Email from this list — no need to open each lead. Confirm
+            "Good?" after sending so they leave the fresh pile.
           </p>
         </div>
         <div className="flex gap-3 flex-wrap">
@@ -199,11 +204,14 @@ export default async function LeadsPage({
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Last contact
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Outreach
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {freshLeads.map((lead: any) => (
-                  <tr key={lead.id} className="hover:bg-gray-50">
+                  <tr key={lead.id} className="hover:bg-gray-50 align-top">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Link
                         href={`/leads/${lead.id}`}
@@ -245,6 +253,13 @@ export default async function LeadsPage({
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(lead.last_contacted_at)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <LeadRowActions
+                        leadId={lead.id}
+                        phone={lead.larkspur_contacts?.phone}
+                        email={lead.larkspur_contacts?.email}
+                      />
                     </td>
                   </tr>
                 ))}
