@@ -36,11 +36,21 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
 
   if (disapprove) {
+    // larkspur_leads has no disapproved_at column — use stage only.
+    // Soft-block the company via companies.disapproved_at (migration 0002).
+    const { data: leadRow, error: leadFetchErr } = await admin
+      .from("larkspur_leads")
+      .select("company_id")
+      .eq("id", lead_id)
+      .single();
+    if (leadFetchErr) {
+      return NextResponse.json({ error: leadFetchErr.message }, { status: 500 });
+    }
+
     const { error } = await admin
       .from("larkspur_leads")
       .update({
         stage: "disqualified",
-        disapproved_at: now,
         next_follow_up_at: null,
         updated_at: now,
       })
@@ -48,6 +58,14 @@ export async function POST(request: Request) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    if (leadRow?.company_id) {
+      await admin
+        .from("larkspur_companies")
+        .update({ disapproved_at: now })
+        .eq("id", leadRow.company_id);
+    }
+
     return NextResponse.json({ success: true, disapproved: true });
   }
 
