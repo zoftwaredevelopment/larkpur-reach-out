@@ -486,12 +486,18 @@ export function LeadDetailClient({
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                 />
               ) : liveEmail ? (
-                <p className="text-lg font-medium">{liveEmail}</p>
-              ) : (
                 <EmailFallbackLink
                   leadId={lead.id}
-                  onOpen={() => {}}
+                  email={liveEmail}
+                  message={generatedMessage}
+                  onGenerateMessage={() => handleGenerateMessage("initial")}
+                  onOpen={(draft) =>
+                    setPendingSend({ channel: "email", text: draft })
+                  }
+                  onError={setMessageError}
                 />
+              ) : (
+                <p className="text-lg font-medium text-gray-400">No email</p>
               )}
             </div>
           </div>
