@@ -27,7 +27,7 @@ export default async function LeadsPage({
   const { data: allLeads } = await supabase
     .from("larkspur_leads")
     .select(
-      "*, larkspur_companies(name, industry, city, website), larkspur_contacts(name, role, phone)"
+      "*, larkspur_companies(name, industry, city, website), larkspur_contacts(name, role, phone, email)"
     )
     .neq("stage", "disqualified")
     .order("updated_at", { ascending: false });
@@ -56,8 +56,6 @@ export default async function LeadsPage({
     return true;
   });
 
-  // Top pile = not yet outreached. Logging the first sent message moves stage to
-  // contacted and schedules next_follow_up_at, so the lead leaves this list.
   const freshLeads = stageFilter
     ? leads
     : leads.filter((l: any) => (l.stage || "prospect") === "prospect");
@@ -93,7 +91,7 @@ export default async function LeadsPage({
           <p className="text-gray-600 mt-1">
             {stageFilter
               ? `${leads.length} lead${leads.length === 1 ? "" : "s"} (filtered)`
-              : `${freshLeads.length} fresh lead${freshLeads.length === 1 ? "" : "s"} (prospects) in your pipeline`}
+              : `${freshLeads.length} fresh lead${freshLeads.length === 1 ? "" : "s"} (prospects)`}
           </p>
         </div>
         <div className="flex gap-3 flex-wrap">
@@ -182,26 +180,23 @@ export default async function LeadsPage({
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Company
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Contact
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Industry
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Website
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Stage
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Last contact
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    
                   </th>
                 </tr>
               </thead>
@@ -209,9 +204,12 @@ export default async function LeadsPage({
                 {freshLeads.map((lead: any) => (
                   <tr key={lead.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {lead.larkspur_companies?.name}
-                      </div>
+                      <Link
+                        href={`/leads/${lead.id}`}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                      >
+                        {lead.larkspur_companies?.name || "—"}
+                      </Link>
                       <div className="text-sm text-gray-500">
                         {lead.larkspur_companies?.city}
                       </div>
@@ -246,14 +244,6 @@ export default async function LeadsPage({
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(lead.last_contacted_at)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link
-                        href={`/leads/${lead.id}`}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        View
-                      </Link>
                     </td>
                   </tr>
                 ))}

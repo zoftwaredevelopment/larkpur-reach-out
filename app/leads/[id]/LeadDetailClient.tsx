@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState, useMemo } from "react";
 import { WhatsAppPhoneLink } from "./WhatsAppPhoneLink";
 import { EmailFallbackLink } from "./EmailFallbackLink";
+import { SendConfirmBar } from "../SendConfirmBar";
 import { createClient } from "@/lib/supabase/client";
 
 interface LeadDetailProps {
@@ -46,6 +47,17 @@ function formatDateInput(iso: string | null | undefined) {
     return "";
   }
 }
+
+const BLOCKED_BUBBLE_PHRASES = [
+  "follow-up sent",
+  "follow up sent",
+  "email sent",
+  "whatsapp message sent",
+  "whatsapp reply received",
+  "message sent",
+  "15-minute scoping call",
+  "scoping call completed",
+];
 
 export function LeadDetailClient({
   lead: initialLead,
@@ -93,7 +105,11 @@ export function LeadDetailClient({
   const [generating, setGenerating] = useState(false);
   const [generatedMessage, setGeneratedMessage] = useState<string | null>(null);
   const [messageError, setMessageError] = useState<string | null>(null);
-  const [contactMethod, setContactMethod] = useState<"whatsapp" | "email" | "phone">("whatsapp");
+
+  const [pendingSend, setPendingSend] = useState<{
+    channel: "whatsapp" | "email";
+    text: string;
+  } | null>(null);
 
   const [historyMode, setHistoryMode] = useState<"whatsapp" | "email">("whatsapp");
   const [emailSpeaker, setEmailSpeaker] = useState<"larkspur" | "client">("client");
@@ -104,6 +120,19 @@ export function LeadDetailClient({
     total: number;
     already: number;
   } | null>(null);
+
+  const unansweredOutboundCount = useMemo(() => {
+    const outbound = interactions.filter((i) => {
+      const t = (i.type || "").toLowerCase();
+      return t === "whatsapp_sent" || t === "email" || t === "call";
+    });
+    const hasClient = interactions.some((i) => {
+      const t = (i.type || "").toLowerCase();
+      return t === "whatsapp_reply" || i.notes === "email_client_paste";
+    });
+    if (hasClient) return 0;
+    return outbound.length;
+  }, [interactions]);
 
   const updateForm = (key: string, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -318,7 +347,12 @@ export function LeadDetailClient({
   };
 
   const clearHistory = async () => {
-    if (!confirm("Delete ALL conversation history for this lead? This cannot be undone.")) return;
+    if (
+      !window.confirm(
+        "Delete ALL conversation history for this lead? This cannot be undone."
+      )
+    )
+      return;
     const { error } = await supabase
       .from("larkspur_interactions")
       .delete()
@@ -332,7 +366,12 @@ export function LeadDetailClient({
   };
 
   const disapprove = async () => {
-    if (!confirm("Disapprove this lead? It will be removed from your active pipeline.")) return;
+    if (
+      !window.confirm(
+        "Disapprove this lead? It will be removed from your active pipeline."
+      )
+    )
+      return;
 
     try {
       const res = await fetch("/api/disapprove-lead", {
@@ -350,12 +389,11 @@ export function LeadDetailClient({
 
       router.push("/leads");
       router.refresh();
-    } catch (err) {
+    } catch {
       alert("Something went wrong");
     }
   };
 
-  // Blue = you. White = client.
   const isFromMe = (int: any) => {
     if (int.notes === "email_client_paste") return false;
     if (int.notes === "follow_up_confirmed") return false;
@@ -369,25 +407,27 @@ export function LeadDetailClient({
 
   const getBubbleText = (int: any) => {
     const raw = (int.reply_content || "").trim();
-    if (raw && !/^whatsapp (message sent|reply received)/i.test(raw)) return raw;
-    const fallback = (int.message_content || "")
-      .replace(/^WhatsApp message sent to .+?:\s*/i, "")
-      .replace(/^WhatsApp reply received from .+?:\s*/i, "")
-      .trim();
-    return fallback || "—";
+    if (raw) return raw;
+    return (int.message_content || "").trim();
   };
 
   const shouldShowBubble = (int: any) => {
     if (int.notes === "follow_up_confirmed") return false;
     const text = getBubbleText(int);
-    if (!text || text === "—") return false;
+    if (!text) return false;
+    const lower = text.toLowerCase();
+    if (BLOCKED_BUBBLE_PHRASES.some((b) => lower === b || lower.startsWith(b))) {
+      return false;
+    }
     if (/^whatsapp (message sent|reply received)/i.test(text)) return false;
-    if (text === "Follow-up sent") return false;
     return true;
   };
 
   const displaySalary = editing ? form.monthly_salary : company?.monthly_salary;
   const displayDeal = editing ? computedDealValue : company?.deal_value ?? computedDealValue;
+
+  const livePhone = contact?.phone || company?.phone || "";
+  const liveEmail = contact?.email || "";
 
   return (
     <div className="max-w-7xl mx-auto p-8">
@@ -624,13 +664,17 @@ export function LeadDetailClient({
                   value={form.contact_phone}
                   onChange={(e) => updateForm("contact_phone", e.target.value)}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  placeholder="WhatsApp number (editable)"
                 />
-              ) : contact?.phone || company?.phone ? (
+              ) : livePhone ? (
                 <WhatsAppPhoneLink
-                  phone={contact?.phone || company?.phone}
+                  phone={livePhone}
                   message={generatedMessage}
                   onGenerateMessage={() => handleGenerateMessage("initial")}
-                  onOpen={() => setContactMethod("whatsapp")}
+                  onOpen={(draft) => {
+                    setGeneratedMessage(draft);
+                    setPendingSend({ channel: "whatsapp", text: draft });
+                  }}
                   onError={setMessageError}
                 />
               ) : (
@@ -645,21 +689,45 @@ export function LeadDetailClient({
                   value={form.contact_email}
                   onChange={(e) => updateForm("contact_email", e.target.value)}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  placeholder="Email (editable)"
+                />
+              ) : liveEmail ? (
+                <EmailFallbackLink
+                  leadId={lead.id}
+                  email={liveEmail}
+                  message={generatedMessage}
+                  onGenerateMessage={() => handleGenerateMessage("initial")}
+                  onOpen={(draft) => {
+                    setGeneratedMessage(draft);
+                    setPendingSend({ channel: "email", text: draft });
+                  }}
+                  onError={setMessageError}
                 />
               ) : (
-                <p className="font-medium">{contact?.email || "—"}</p>
+                <p className="font-medium">—</p>
               )}
             </div>
-            {!editing && (
-              <div>
-                <EmailFallbackLink
-                  key={lead.id}
-                  leadId={lead.id}
-                  onOpen={() => setContactMethod("email")}
-                />
-              </div>
-            )}
           </div>
+
+          {!editing && pendingSend && (
+            <SendConfirmBar
+              leadId={lead.id}
+              channel={pendingSend.channel}
+              messageText={pendingSend.text}
+              unansweredOutboundCount={unansweredOutboundCount}
+              onDone={async () => {
+                setPendingSend(null);
+                const { data: intData } = await supabase
+                  .from("larkspur_interactions")
+                  .select("*")
+                  .eq("lead_id", lead.id)
+                  .order("replied_at", { ascending: true })
+                  .order("created_at", { ascending: true });
+                if (intData) setInteractions(intData);
+              }}
+              onDismiss={() => setPendingSend(null)}
+            />
+          )}
         </div>
 
         <div className="p-6">
@@ -673,16 +741,24 @@ export function LeadDetailClient({
                   onChange={(e) => updateForm("stage", e.target.value)}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                 >
-                  {["prospect", "contacted", "replied", "meeting", "client", "disqualified", "unreachable"].map(
-                    (s) => (
-                      <option key={s} value={s}>
-                        {s === "meeting" ? "met" : s}
-                      </option>
-                    )
-                  )}
+                  {[
+                    "prospect",
+                    "contacted",
+                    "replied",
+                    "meeting",
+                    "client",
+                    "disqualified",
+                    "unreachable",
+                  ].map((s) => (
+                    <option key={s} value={s}>
+                      {s === "meeting" ? "met" : s}
+                    </option>
+                  ))}
                 </select>
               ) : (
-                <p className="font-medium">{lead.stage === "meeting" ? "met" : lead.stage}</p>
+                <p className="font-medium">
+                  {lead.stage === "meeting" ? "met" : lead.stage}
+                </p>
               )}
             </div>
             <div>
@@ -712,7 +788,9 @@ export function LeadDetailClient({
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                 />
               ) : (
-                <p className="font-medium whitespace-pre-wrap">{lead?.objections || "—"}</p>
+                <p className="font-medium whitespace-pre-wrap">
+                  {lead?.objections || "—"}
+                </p>
               )}
             </div>
             <div className="md:col-span-2">
@@ -738,7 +816,9 @@ export function LeadDetailClient({
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                 />
               ) : (
-                <p className="font-medium whitespace-pre-wrap">{lead?.next_action || "—"}</p>
+                <p className="font-medium whitespace-pre-wrap">
+                  {lead?.next_action || "—"}
+                </p>
               )}
             </div>
           </div>
@@ -750,7 +830,7 @@ export function LeadDetailClient({
           <div>
             <h2 className="text-lg font-semibold mb-1">Conversation History</h2>
             <p className="text-sm text-gray-500">
-              You (Larkspur / Mishael) on the right in blue. Client on the left in white.
+              You on the right in blue. Client on the left in white. System events hidden.
             </p>
           </div>
           <button onClick={clearHistory} className="text-xs text-red-600 hover:underline">
@@ -761,7 +841,7 @@ export function LeadDetailClient({
         <div className="p-6 min-h-[200px] max-h-[520px] overflow-y-auto bg-gray-50 space-y-3">
           {interactions.filter(shouldShowBubble).length === 0 ? (
             <p className="text-gray-500 text-center py-8">
-              No messages yet. Import WhatsApp or email below.
+              No messages yet. Import WhatsApp or email below — or use Good? after green/purple.
             </p>
           ) : (
             interactions.map((int: any) => {
@@ -783,7 +863,11 @@ export function LeadDetailClient({
                   >
                     <p className="text-sm whitespace-pre-wrap">{text}</p>
                     {time && (
-                      <p className={`text-[10px] mt-1 ${mine ? "text-blue-100" : "text-gray-400"}`}>
+                      <p
+                        className={`text-[10px] mt-1 ${
+                          mine ? "text-blue-100" : "text-gray-400"
+                        }`}
+                      >
                         {formatTime(time)}
                       </p>
                     )}
@@ -854,10 +938,10 @@ export function LeadDetailClient({
             </h3>
             <p className="text-xs text-gray-500 mb-3">
               {historyMode === "whatsapp"
-                ? "Only client (white) messages move stage to replied. Own-only → contacted."
+                ? "Only client messages move stage to replied. Own-only → contacted."
                 : emailSpeaker === "larkspur"
-                  ? "Saved as your message (blue). Stage → contacted if no client yet."
-                  : "Saved as client message (white). Stage → replied."}
+                  ? "Saved as your message (blue)."
+                  : "Saved as client message (white)."}
             </p>
             <textarea
               value={chatHistoryInput}
@@ -891,9 +975,10 @@ export function LeadDetailClient({
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold mb-2">Generate WhatsApp Message</h2>
+        <h2 className="text-lg font-semibold mb-2">Generate message</h2>
         <p className="text-sm text-gray-600 mb-4">
-          Generate a message, then click the green number to open WhatsApp with it pre-filled.
+          Generate a draft, then click the green phone or purple email. After you send, hit{" "}
+          <strong>Good?</strong> to log — nothing is written until then.
         </p>
         <div className="flex flex-wrap gap-3 mb-4">
           {["initial", "follow_up_1", "follow_up_2"].map((stage) => (

@@ -1,80 +1,72 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, type MouseEvent } from "react";
 
-type EmailDraft = { email: string; subject: string; body: string };
-type Status = "loading" | "ready" | "unavailable" | "error";
+interface EmailFallbackLinkProps {
+  leadId: string;
+  email: string | null | undefined;
+  message: string | null;
+  onGenerateMessage: () => Promise<string | null>;
+  onOpen: (draft: string) => void;
+  onError: (message: string | null) => void;
+}
 
-export function EmailFallbackLink({ leadId, onOpen }: { leadId: string; onOpen: () => void }) {
-  const [draft, setDraft] = useState<EmailDraft | null>(null);
-  const [status, setStatus] = useState<Status>("loading");
-  const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
+export function EmailFallbackLink({
+  leadId,
+  email,
+  message,
+  onGenerateMessage,
+  onOpen,
+  onError,
+}: EmailFallbackLinkProps) {
+  const [preparing, setPreparing] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  if (!email?.trim()) {
+    return <span className="text-gray-400">No email</span>;
+  }
 
-    fetch("/api/prepare-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lead_id: leadId, refresh: attempt > 0 }),
-    })
-      .then(async (response) => {
-        const data = await response.json().catch(() => null);
-        if (cancelled) return;
-        if (response.status === 404) {
-          setStatus("unavailable");
-          return;
-        }
-        if (!response.ok || !data?.draft) {
-          throw new Error(data?.error || "Could not prepare the email fallback");
-        }
-        setDraft(data.draft);
-        setStatus("ready");
-      })
-      .catch((reason) => {
-        if (cancelled) return;
-        setError(reason instanceof Error ? reason.message : "Could not prepare email");
-        setStatus("error");
-      });
+  const buildMailto = (body: string) =>
+    `mailto:${email.trim()}?subject=${encodeURIComponent(
+      "Quick note"
+    )}&body=${encodeURIComponent(body)}`;
 
-    return () => { cancelled = true; };
-  }, [leadId, attempt]);
+  const handleClick = async (event: MouseEvent<HTMLAnchorElement>) => {
+    if (message?.trim()) {
+      onOpen(message.trim());
+      return;
+    }
 
-  const retry = () => {
-    setStatus("loading");
-    setError(null);
-    setDraft(null);
-    setAttempt((value) => value + 1);
+    event.preventDefault();
+    if (preparing) return;
+
+    setPreparing(true);
+    onError(null);
+
+    try {
+      const draft = await onGenerateMessage();
+      if (!draft) return;
+      onOpen(draft);
+      window.location.href = buildMailto(draft);
+    } catch (e: any) {
+      onError(e.message || "Failed to prepare email");
+    } finally {
+      setPreparing(false);
+    }
   };
-  const href = draft
-    ? `mailto:${draft.email}?subject=${encodeURIComponent(draft.subject)}&body=${encodeURIComponent(draft.body)}`
-    : null;
+
+  const href = message?.trim() ? buildMailto(message.trim()) : `mailto:${email.trim()}`;
 
   return (
-    <div>
-      <span className="font-medium">Email:</span>{" "}
-      {status === "loading" && <span className="text-purple-600">Preparing email…</span>}
-      {status === "ready" && draft && href && (
-        <a
-          href={href}
-          onClick={onOpen}
-          className="text-purple-700 font-medium hover:underline break-all"
-          title={`Subject: ${draft.subject}`}
-        >
-          {draft.email}
-        </a>
-      )}
-      {status === "unavailable" && (
-        <button onClick={retry} className="text-gray-500 hover:text-purple-700 hover:underline" title="Search the website again">
-          No public email found · retry
-        </button>
-      )}
-      {status === "error" && (
-        <button onClick={retry} className="text-purple-700 hover:underline" title={error || undefined}>
-          Retry email preparation
-        </button>
-      )}
-    </div>
+    <span className="inline-flex items-center gap-2">
+      <a
+        href={href}
+        onClick={handleClick}
+        className="text-purple-700 font-medium hover:underline break-all"
+        title="Open email — confirm Good? afterward to log as Larkspur outbound"
+      >
+        {email}
+      </a>
+      {preparing && <span className="text-xs text-gray-500">Drafting…</span>}
+    </span>
   );
 }
