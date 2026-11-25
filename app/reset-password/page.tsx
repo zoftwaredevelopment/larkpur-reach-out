@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { SYMBOL_DATA_URI } from "@/lib/brand/logoAssets";
+import { WORDMARK_DATA_URI } from "@/lib/brand/logoAssets";
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
@@ -53,11 +53,10 @@ export default function ResetPasswordPage() {
         <div className="text-center mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={SYMBOL_DATA_URI}
+            src={WORDMARK_DATA_URI}
             alt="Larkspur"
-            width={48}
-            height={48}
-            className="mx-auto mb-4 h-12 w-12 object-contain"
+            height={40}
+            className="mx-auto mb-4 h-10 w-auto max-w-[200px] object-contain"
           />
           <h1 className="text-2xl font-semibold text-[#1a1b87] tracking-tight">
             Choose a new password

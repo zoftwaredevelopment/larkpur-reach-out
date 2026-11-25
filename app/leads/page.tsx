@@ -206,7 +206,11 @@ export default async function LeadsPage({
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Link
                         href={`/leads/${lead.id}`}
+<<<<<<< HEAD
                         className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+=======
+                        className="text-sm font-medium text-blue-700 hover:text-blue-900 hover:underline"
+>>>>>>> eb4d793012a65898ff832c2a9be71593379ac345
                       >
                         {lead.larkspur_companies?.name || "—"}
                       </Link>

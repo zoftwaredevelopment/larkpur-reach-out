@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import "./globals.css";
-import { BrandChrome } from "@/components/BrandChrome";
+import { ConditionalBrandChrome } from "@/components/ConditionalBrandChrome";
 import { FAVICON_DATA_URI } from "@/lib/brand/logoAssets";
 
 const montserrat = Montserrat({
@@ -28,7 +28,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${montserrat.className} antialiased`}>
         <div className="min-h-screen">
-          <BrandChrome />
+          <ConditionalBrandChrome />
           {children}
         </div>
       </body>
